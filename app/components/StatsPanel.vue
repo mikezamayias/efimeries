@@ -17,7 +17,9 @@ const doctorStats = computed(() => {
     const wantsFulfilled = stats.value!.wantsFulfilled[doc.id] ?? 0
     const wantsTotal = stats.value!.wantsTotal[doc.id] ?? 0
     const wishPercent = wantsTotal > 0 ? Math.round((wantsFulfilled / wantsTotal) * 100) : -1
-    return { ...doc, total, fri, sat, sun, holiday, weekday, wantsFulfilled, wantsTotal, wishPercent }
+    const leave = stats.value!.leaveCounts?.[doc.id] ?? 0
+    const sick = stats.value!.sickCounts?.[doc.id] ?? 0
+    return { ...doc, total, fri, sat, sun, holiday, weekday, wantsFulfilled, wantsTotal, wishPercent, leave, sick }
   })
 })
 </script>
@@ -67,6 +69,14 @@ const doctorStats = computed(() => {
           <div v-if="doc.holiday > 0">
             <span class="text-muted">Αργ</span>
             <span class="ml-1 font-semibold text-accent">{{ doc.holiday }}</span>
+          </div>
+          <div v-if="doc.leave > 0">
+            <span class="text-muted">Άδεια</span>
+            <span class="ml-1 font-semibold" style="color: #D97706">{{ doc.leave }}</span>
+          </div>
+          <div v-if="doc.sick > 0">
+            <span class="text-muted">Αναρρ.</span>
+            <span class="ml-1 font-semibold" style="color: #DC2626">{{ doc.sick }}</span>
           </div>
         </div>
 

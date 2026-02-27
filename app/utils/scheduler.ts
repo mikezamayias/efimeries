@@ -34,8 +34,9 @@ function isConsistent(
   month?: number,
   doctorTypes?: Record<number, DoctorType>,
 ): boolean {
-  // Block mark
-  if (marks[doctorId]?.[dayIndex] === 'block') return false
+  // Block / leave / sick mark
+  const mark = marks[doctorId]?.[dayIndex]
+  if (mark === 'block' || mark === 'leave' || mark === 'sick') return false
 
   // No consecutive / min gap
   for (let offset = 1; offset <= constraints.minGap; offset++) {
@@ -297,7 +298,8 @@ export function generateSchedule(
       const domain = new Set<number>()
       // Only eidikevomenoi for unassigned days
       for (const id of eidikevomenoiIds) {
-        if (marks[id]?.[d] !== 'block') {
+        const m = marks[id]?.[d]
+        if (m !== 'block' && m !== 'leave' && m !== 'sick') {
           domain.add(id)
         }
       }
@@ -329,7 +331,8 @@ export function generateSchedule(
     } else {
       const domain = new Set<number>()
       for (const id of eidikevomenoiIds) {
-        if (marks[id]?.[d] !== 'block') domain.add(id)
+        const m = marks[id]?.[d]
+        if (m !== 'block' && m !== 'leave' && m !== 'sick') domain.add(id)
       }
       relaxedDomains.push(domain)
     }
@@ -451,7 +454,8 @@ function greedyFallback(
   for (let d = 0; d < daysInMonth; d++) {
     const shuffled = shuffle(doctorIds)
     const candidates = shuffled.filter(id => {
-      if (marks[id]?.[d] === 'block') return false
+      const m = marks[id]?.[d]
+      if (m === 'block' || m === 'leave' || m === 'sick') return false
       if ((counts[id] ?? 0) >= constraints.maxShifts) return false
       for (let off = 1; off <= Math.max(1, constraints.minGap); off++) {
         if (d - off >= 0 && schedule[d - off] === id) return false
@@ -485,6 +489,8 @@ function buildResult(
   const holidayCounts: Record<number, number> = {}
   const wantsFulfilled: Record<number, number> = {}
   const wantsTotal: Record<number, number> = {}
+  const leaveCounts: Record<number, number> = {}
+  const sickCounts: Record<number, number> = {}
 
   for (const d of doctors) {
     counts[d.id] = 0
@@ -494,11 +500,16 @@ function buildResult(
     holidayCounts[d.id] = 0
     wantsFulfilled[d.id] = 0
     wantsTotal[d.id] = 0
+    leaveCounts[d.id] = 0
+    sickCounts[d.id] = 0
   }
 
   for (const d of doctors) {
     for (let i = 0; i < daysInMonth; i++) {
-      if (marks[d.id]?.[i] === 'want') wantsTotal[d.id]!++
+      const mark = marks[d.id]?.[i]
+      if (mark === 'want') wantsTotal[d.id]!++
+      if (mark === 'leave') leaveCounts[d.id] = (leaveCounts[d.id] ?? 0) + 1
+      if (mark === 'sick') sickCounts[d.id] = (sickCounts[d.id] ?? 0) + 1
     }
   }
 
@@ -516,7 +527,7 @@ function buildResult(
     }
   }
 
-  return { schedule, counts, friCounts, satCounts, sunCounts, holidayCounts, wantsFulfilled, wantsTotal }
+  return { schedule, counts, friCounts, satCounts, sunCounts, holidayCounts, wantsFulfilled, wantsTotal, leaveCounts, sickCounts }
 }
 
 export function recalculateStats(

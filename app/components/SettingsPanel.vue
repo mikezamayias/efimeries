@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package } from 'lucide-vue-next'
+import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
 import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS } from '~/utils/types'
@@ -9,7 +9,7 @@ import type { DoctorType } from '~/utils/types'
 const {
   doctors, marks, constraints, month, year,
   addDoctor, removeDoctor, updateDoctor, resetAll, showToast,
-  importData,
+  importData, autoHolidays, toggleAutoHolidays,
 } = useAppState()
 
 const haptics = useHaptics()
@@ -212,6 +212,32 @@ function handleImport() {
               @click="constraints.maxShifts = Math.min(15, constraints.maxShifts + 1)"
             >+</button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Auto Holidays -->
+    <section>
+      <h2 class="section-title mb-3 flex items-center gap-2">
+        <CalendarHeart class="w-[16px] h-[16px] text-muted" />
+        Αργίες
+      </h2>
+      <div class="card p-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1">
+            <div class="text-[14px] font-medium text-foreground">Αυτόματες αργίες</div>
+            <div class="text-[12px] text-muted mt-0.5">Ελληνικές αργίες & Πάσχα</div>
+          </div>
+          <button
+            class="relative w-[51px] h-[31px] rounded-full transition-colors duration-200 flex-shrink-0"
+            :style="{ backgroundColor: autoHolidays ? 'var(--color-accent)' : 'var(--color-border)' }"
+            @click="toggleAutoHolidays()"
+          >
+            <div
+              class="absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white shadow transition-transform duration-200"
+              :style="{ transform: autoHolidays ? 'translateX(22px)' : 'translateX(2px)' }"
+            />
+          </button>
         </div>
       </div>
     </section>

@@ -7,7 +7,7 @@ export interface Doctor {
   colorIndex: number // 0-9, maps to DOCTOR_COLORS
 }
 
-export type Mark = 'block' | 'want' | 'holiday' | undefined
+export type Mark = 'block' | 'want' | 'holiday' | 'leave' | 'sick' | undefined
 
 // marks[doctorId][dayIndex] = Mark
 export type MarksMap = Record<number, Record<number, Mark>>
@@ -26,6 +26,8 @@ export interface ScheduleResult {
   holidayCounts: Record<number, number>
   wantsFulfilled: Record<number, number>
   wantsTotal: Record<number, number>
+  leaveCounts: Record<number, number>
+  sickCounts: Record<number, number>
 }
 
 export interface AppState {

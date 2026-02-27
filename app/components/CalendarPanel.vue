@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Sparkles, FileSpreadsheet, FileText, CalendarDays, Ban, Star } from 'lucide-vue-next'
+import { Sparkles, FileSpreadsheet, FileText, CalendarDays, Ban, Star, Palmtree, Thermometer } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
 import {
@@ -13,7 +13,7 @@ import { exportToExcel, exportToPDF, exportToICS } from '~/utils/exports'
 
 const {
   doctors, month, year, marks, schedule, stats, daysInMonth,
-  generate, assignDay,
+  generate, assignDay, holidayMap,
 } = useAppState()
 
 const haptics = useHaptics()
@@ -50,7 +50,7 @@ function isWeekendDay(dayIndex: number): boolean {
   return dow === 0 || dow === 6
 }
 
-function getDayMark(dayIndex: number): 'block' | 'want' | 'holiday' | null {
+function getDayMark(dayIndex: number): 'block' | 'want' | 'holiday' | 'leave' | 'sick' | null {
   for (const doc of doctors.value) {
     const mark = marks.value[doc.id]?.[dayIndex]
     if (mark) return mark
@@ -65,6 +65,19 @@ function isHoliday(dayIndex: number): boolean {
   return false
 }
 
+function hasLeaveOrSick(dayIndex: number): 'leave' | 'sick' | null {
+  for (const doc of doctors.value) {
+    const mark = marks.value[doc.id]?.[dayIndex]
+    if (mark === 'leave') return 'leave'
+    if (mark === 'sick') return 'sick'
+  }
+  return null
+}
+
+function getHolidayName(dayIndex: number): string | null {
+  return holidayMap.value[dayIndex] ?? null
+}
+
 function openSheet(dayIndex: number) {
   if (!schedule.value) return
   selectedDay.value = dayIndex
@@ -77,8 +90,10 @@ function selectDoctor(doctorId: number | null) {
   haptics.medium()
 }
 
-function getMarkForDoctor(doctorId: number, dayIndex: number): 'block' | 'want' | undefined {
-  return marks.value[doctorId]?.[dayIndex]
+function getMarkForDoctor(doctorId: number, dayIndex: number): 'block' | 'want' | 'leave' | 'sick' | undefined {
+  const mark = marks.value[doctorId]?.[dayIndex]
+  if (mark === 'block' || mark === 'want' || mark === 'leave' || mark === 'sick') return mark
+  return undefined
 }
 
 async function doExportExcel() {
@@ -166,7 +181,7 @@ function doExportICS(doctorId?: number | null) {
         <div
           v-for="(cell, ci) in gridCells"
           :key="ci"
-          class="aspect-square flex flex-col items-center justify-center gap-[2px] p-[2px] relative
+          class="aspect-square flex flex-col items-center justify-center gap-[1px] p-[2px] relative
                  border-b border-r border-border transition-colors duration-100"
           :class="[
             cell.day === null
@@ -174,6 +189,8 @@ function doExportICS(doctorId?: number | null) {
               : 'cursor-pointer hover:bg-accent-soft active:scale-[0.97]',
             cell.day !== null && isWeekendDay(cell.index) ? 'bg-weekend-bg' : (cell.day !== null ? 'bg-surface' : ''),
             cell.day !== null && isHoliday(cell.index) ? 'ring-1 ring-inset ring-accent/20' : '',
+            cell.day !== null && hasLeaveOrSick(cell.index) === 'leave' ? 'ring-1 ring-inset ring-amber-400/30' : '',
+            cell.day !== null && hasLeaveOrSick(cell.index) === 'sick' ? 'ring-1 ring-inset ring-red-400/30' : '',
           ]"
           @click="cell.day !== null && openSheet(cell.index)"
         >
@@ -197,11 +214,21 @@ function doExportICS(doctorId?: number | null) {
             </div>
             <div v-else-if="schedule" class="text-[10px] text-muted">—</div>
 
+            <!-- Holiday name -->
+            <div
+              v-if="getHolidayName(cell.index)"
+              class="text-[7px] leading-tight text-accent font-medium truncate max-w-full px-[1px] text-center"
+            >
+              {{ getHolidayName(cell.index) }}
+            </div>
+
             <!-- Mark dots -->
             <div class="absolute bottom-[2px] right-[3px] flex gap-[2px]">
               <span v-if="getDayMark(cell.index) === 'want'" class="w-[5px] h-[5px] rounded-full bg-positive" />
               <span v-if="getDayMark(cell.index) === 'block'" class="w-[5px] h-[5px] rounded-full bg-danger" />
               <span v-if="getDayMark(cell.index) === 'holiday'" class="w-[5px] h-[5px] rounded-full bg-accent" />
+              <span v-if="getDayMark(cell.index) === 'leave'" class="w-[5px] h-[5px] rounded-full" style="background-color: #F59E0B" />
+              <span v-if="getDayMark(cell.index) === 'sick'" class="w-[5px] h-[5px] rounded-full" style="background-color: #EF4444" />
             </div>
           </template>
         </div>
@@ -251,6 +278,8 @@ function doExportICS(doctorId?: number | null) {
           <span class="text-[14px] font-medium text-foreground flex-1 text-left">{{ doc.name }}</span>
           <Star v-if="selectedDay !== null && getMarkForDoctor(doc.id, selectedDay) === 'want'" class="w-[14px] h-[14px] text-positive" />
           <Ban v-if="selectedDay !== null && getMarkForDoctor(doc.id, selectedDay) === 'block'" class="w-[14px] h-[14px] text-danger" />
+          <Palmtree v-if="selectedDay !== null && getMarkForDoctor(doc.id, selectedDay) === 'leave'" class="w-[14px] h-[14px]" style="color: #F59E0B" />
+          <Thermometer v-if="selectedDay !== null && getMarkForDoctor(doc.id, selectedDay) === 'sick'" class="w-[14px] h-[14px]" style="color: #EF4444" />
         </button>
       </div>
     </BottomSheet>

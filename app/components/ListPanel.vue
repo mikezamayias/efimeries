@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Star } from 'lucide-vue-next'
+import { Star, Palmtree, Thermometer } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { DOCTOR_COLORS, DAY_NAMES, getDayOfWeek, getDayOfWeekMondayBased } from '~/utils/types'
 
-const { doctors, month, year, marks, schedule, daysInMonth } = useAppState()
+const { doctors, month, year, marks, schedule, daysInMonth, holidayMap } = useAppState()
 
 function getDoctorForDay(dayIndex: number) {
   if (!schedule.value) return null
@@ -27,6 +27,27 @@ function isWantFulfilled(dayIndex: number): boolean {
   if (docId == null) return false
   return marks.value[docId]?.[dayIndex] === 'want'
 }
+
+function hasLeaveOrSick(dayIndex: number): 'leave' | 'sick' | null {
+  for (const doc of doctors.value) {
+    const mark = marks.value[doc.id]?.[dayIndex]
+    if (mark === 'leave') return 'leave'
+    if (mark === 'sick') return 'sick'
+  }
+  return null
+}
+
+function getHolidayName(dayIndex: number): string | null {
+  return holidayMap.value[dayIndex] ?? null
+}
+
+function getRowBg(dayIndex: number): string {
+  const ls = hasLeaveOrSick(dayIndex)
+  if (ls === 'leave') return 'rgba(245,158,11,0.08)'
+  if (ls === 'sick') return 'rgba(239,68,68,0.08)'
+  if (isWeekend(dayIndex)) return 'var(--color-weekend-bg)'
+  return 'var(--color-surface)'
+}
 </script>
 
 <template>
@@ -40,7 +61,7 @@ function isWantFulfilled(dayIndex: number): boolean {
         v-for="i in daysInMonth"
         :key="i"
         class="flex items-center gap-3 px-4 py-3 rounded-[8px] transition-colors"
-        :style="{ backgroundColor: isWeekend(i - 1) ? 'var(--color-weekend-bg)' : 'var(--color-surface)' }"
+        :style="{ backgroundColor: getRowBg(i - 1) }"
       >
         <div class="w-[48px] flex-shrink-0">
           <div
@@ -52,6 +73,10 @@ function isWantFulfilled(dayIndex: number): boolean {
           <div class="text-[11px] font-medium mt-0.5"
                :style="{ color: isWeekend(i - 1) ? 'var(--color-weekend-text)' : 'var(--color-text-secondary)' }">
             {{ dayName(i - 1) }}
+          </div>
+          <!-- Holiday name in list -->
+          <div v-if="getHolidayName(i - 1)" class="text-[9px] text-accent font-medium mt-0.5 truncate max-w-[48px]">
+            {{ getHolidayName(i - 1) }}
           </div>
         </div>
 
@@ -69,7 +94,11 @@ function isWantFulfilled(dayIndex: number): boolean {
           <span v-else class="text-[13px] text-muted">—</span>
         </div>
 
-        <Star v-if="isWantFulfilled(i - 1)" class="w-[14px] h-[14px] text-positive flex-shrink-0" />
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <Palmtree v-if="hasLeaveOrSick(i - 1) === 'leave'" class="w-[14px] h-[14px]" style="color: #F59E0B" />
+          <Thermometer v-if="hasLeaveOrSick(i - 1) === 'sick'" class="w-[14px] h-[14px]" style="color: #EF4444" />
+          <Star v-if="isWantFulfilled(i - 1)" class="w-[14px] h-[14px] text-positive" />
+        </div>
       </div>
     </template>
   </div>

@@ -4,6 +4,7 @@ import {
   CalendarDays,
   List,
   BarChart3,
+  CalendarRange,
   Bookmark,
   Settings,
 } from 'lucide-vue-next'
@@ -28,6 +29,7 @@ const tabs = [
   { label: 'Ημερολόγιο', icon: CalendarDays },
   { label: 'Λίστα', icon: List },
   { label: 'Στατιστικά', icon: BarChart3 },
+  { label: 'Τρίμηνο', icon: CalendarRange },
   { label: 'Επιθυμίες', icon: Bookmark },
   { label: 'Ρυθμίσεις', icon: Settings },
 ]
@@ -85,8 +87,9 @@ onUnmounted(() => {
         <CalendarPanel v-if="activeTab === 0" />
         <ListPanel v-else-if="activeTab === 1" />
         <StatsPanel v-else-if="activeTab === 2" />
-        <MarksPanel v-else-if="activeTab === 3" />
-        <SettingsPanel v-else-if="activeTab === 4" />
+        <QuarterPanel v-else-if="activeTab === 3" />
+        <MarksPanel v-else-if="activeTab === 4" />
+        <SettingsPanel v-else-if="activeTab === 5" />
       </main>
     </div>
 

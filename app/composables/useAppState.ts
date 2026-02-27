@@ -1,5 +1,5 @@
 import { ref, watch, computed } from 'vue'
-import type { Doctor, DoctorType, MarksMap, Constraints, ScheduleResult } from '~/utils/types'
+import type { Doctor, DoctorType, Mark, MarksMap, Constraints, ScheduleResult } from '~/utils/types'
 import {
   DOCTOR_COLORS,
   DEFAULT_CONSTRAINTS,
@@ -8,9 +8,12 @@ import {
 } from '~/utils/types'
 import { generateSchedule, recalculateStats } from '~/utils/scheduler'
 import { useHistory } from '~/composables/useHistory'
+import { useScheduleStore } from '~/composables/useScheduleStore'
+import { getHolidayMap } from '~/utils/holidays'
 import type { HistorySnapshot } from '~/composables/useHistory'
 
 const STORAGE_KEY = 'efimeries-state'
+const HOLIDAYS_ENABLED_KEY = 'efimeries-auto-holidays'
 
 // Singleton state
 const doctors = ref<Doctor[]>(createDefaultDoctors())
@@ -23,6 +26,7 @@ const schedule = ref<(number | null)[] | null>(null)
 const stats = ref<Omit<ScheduleResult, 'schedule'> | null>(null)
 const toastMessage = ref<string | null>(null)
 const isLoaded = ref(false)
+const autoHolidays = ref(true)
 
 // Flag to suppress history recording during undo/redo restore
 let isRestoring = false
@@ -50,6 +54,16 @@ function saveState() {
         schedule: schedule.value,
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+
+      // Also persist to per-month store
+      const store = useScheduleStore()
+      store.saveMonth(year.value, month.value, {
+        doctors: doctors.value,
+        marks: marks.value,
+        schedule: schedule.value,
+        constraints: constraints.value,
+        nextId: nextId.value,
+      })
     }
     catch {
       // silently fail
@@ -59,9 +73,16 @@ function saveState() {
 
 function loadState() {
   try {
+    // Load auto-holidays preference
+    const holidaysPref = localStorage.getItem(HOLIDAYS_ENABLED_KEY)
+    if (holidaysPref !== null) {
+      autoHolidays.value = holidaysPref !== 'false'
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
       isLoaded.value = true
+      applyAutoHolidays()
       return
     }
     const data = JSON.parse(raw)
@@ -76,11 +97,39 @@ function loadState() {
       stats.value = recalculateStats(data.schedule, doctors.value, data.year ?? year.value, data.month ?? month.value, data.marks ?? marks.value)
     }
     isLoaded.value = true
+    applyAutoHolidays()
     showToast('Φορτώθηκαν αποθηκευμένα δεδομένα')
   }
   catch {
     isLoaded.value = true
   }
+}
+
+/** Apply auto-holiday marks for the current month (without overriding manual marks) */
+function applyAutoHolidays() {
+  if (!autoHolidays.value) return
+
+  const holidayMap = getHolidayMap(year.value, month.value)
+  if (Object.keys(holidayMap).length === 0) return
+
+  const newMarks = { ...marks.value }
+
+  // We use doctor ID 0 as a "system" marker for auto-holidays
+  // But since we need holidays visible per-doctor in the scheduler,
+  // we apply holiday marks to ALL doctors for those days (if not already manually marked)
+  for (const doc of doctors.value) {
+    if (!newMarks[doc.id]) newMarks[doc.id] = {}
+    for (const dayIndexStr in holidayMap) {
+      const dayIndex = parseInt(dayIndexStr, 10)
+      const current = newMarks[doc.id]![dayIndex]
+      // Don't override existing manual marks (block, want, leave, sick)
+      if (current === undefined || current === 'holiday') {
+        newMarks[doc.id]![dayIndex] = 'holiday'
+      }
+    }
+  }
+
+  marks.value = newMarks
 }
 
 // --- History helpers ---
@@ -123,12 +172,24 @@ function recordAction(action: () => void) {
 
 export function useAppState() {
   const history = useHistory()
+  const scheduleStore = useScheduleStore()
   const daysInMonth = computed(() => getDaysInMonth(year.value, month.value))
+
+  // Computed: holiday map for current month
+  const holidayMap = computed(() => getHolidayMap(year.value, month.value))
 
   // Auto-save on changes
   watch([doctors, month, year, marks, constraints, schedule], () => {
     if (isLoaded.value) saveState()
   }, { deep: true })
+
+  // Persist auto-holidays preference
+  watch(autoHolidays, (val) => {
+    localStorage.setItem(HOLIDAYS_ENABLED_KEY, String(val))
+    if (val) {
+      applyAutoHolidays()
+    }
+  })
 
   function generate() {
     recordAction(() => {
@@ -155,7 +216,7 @@ export function useAppState() {
     })
   }
 
-  function setMark(doctorId: number, dayIndex: number, mark: 'block' | 'want' | undefined) {
+  function setMark(doctorId: number, dayIndex: number, mark: Mark) {
     recordAction(() => {
       const newMarks = { ...marks.value }
       if (!newMarks[doctorId]) newMarks[doctorId] = {}
@@ -164,6 +225,25 @@ export function useAppState() {
       }
       else {
         newMarks[doctorId]![dayIndex] = mark
+      }
+      marks.value = newMarks
+    })
+  }
+
+  /** Set marks for a range of days (used for leave/sick range selection) */
+  function setMarkRange(doctorId: number, startDay: number, endDay: number, mark: Mark) {
+    recordAction(() => {
+      const newMarks = { ...marks.value }
+      if (!newMarks[doctorId]) newMarks[doctorId] = {}
+      const from = Math.min(startDay, endDay)
+      const to = Math.max(startDay, endDay)
+      for (let d = from; d <= to; d++) {
+        if (mark === undefined) {
+          delete newMarks[doctorId]![d]
+        }
+        else {
+          newMarks[doctorId]![d] = mark
+        }
       }
       marks.value = newMarks
     })
@@ -184,6 +264,10 @@ export function useAppState() {
         { id: nextId.value, name, type, colorIndex },
       ]
       nextId.value++
+      // Apply auto-holidays to new doctor
+      if (autoHolidays.value) {
+        applyAutoHolidays()
+      }
     })
   }
 
@@ -211,12 +295,46 @@ export function useAppState() {
   }
 
   function setMonth(m: number, y: number) {
+    // Save current month to per-month store before switching
+    scheduleStore.saveMonth(year.value, month.value, {
+      doctors: doctors.value,
+      marks: marks.value,
+      schedule: schedule.value,
+      constraints: constraints.value,
+      nextId: nextId.value,
+    })
+
     // Month navigation is a context switch — clear history
     history.clearHistory()
     month.value = m
     year.value = y
-    schedule.value = null
-    stats.value = null
+
+    // Try to restore from per-month store
+    const saved = scheduleStore.loadMonth(m, y)
+    // Note: loadMonth takes (year, month) — fixed order
+    const restored = scheduleStore.loadMonth(y, m)
+    if (restored) {
+      doctors.value = restored.doctors
+      marks.value = restored.marks
+      schedule.value = restored.schedule
+      constraints.value = restored.constraints
+      nextId.value = restored.nextId
+      if (restored.schedule) {
+        stats.value = recalculateStats(restored.schedule, doctors.value, y, m, marks.value)
+      }
+      else {
+        stats.value = null
+      }
+    }
+    else {
+      // New month — keep doctors, clear the rest
+      schedule.value = null
+      stats.value = null
+      marks.value = {}
+    }
+
+    // Apply auto-holidays for new month
+    applyAutoHolidays()
   }
 
   function resetAll() {
@@ -228,6 +346,7 @@ export function useAppState() {
       stats.value = null
       nextId.value = 6
     })
+    applyAutoHolidays()
     showToast('Επαναφορά ολοκληρώθηκε')
   }
 
@@ -262,6 +381,25 @@ export function useAppState() {
     showToast('Επανάληψη')
   }
 
+  function toggleAutoHolidays() {
+    autoHolidays.value = !autoHolidays.value
+    if (!autoHolidays.value) {
+      // Remove auto-applied holiday marks
+      const holidayDays = getHolidayMap(year.value, month.value)
+      const newMarks = { ...marks.value }
+      for (const doc of doctors.value) {
+        if (!newMarks[doc.id]) continue
+        for (const dayIndexStr in holidayDays) {
+          const dayIndex = parseInt(dayIndexStr, 10)
+          if (newMarks[doc.id]![dayIndex] === 'holiday') {
+            delete newMarks[doc.id]![dayIndex]
+          }
+        }
+      }
+      marks.value = newMarks
+    }
+  }
+
   function initState() {
     loadState()
   }
@@ -277,9 +415,12 @@ export function useAppState() {
     daysInMonth,
     toastMessage,
     isLoaded,
+    autoHolidays,
+    holidayMap,
     generate,
     assignDay,
     setMark,
+    setMarkRange,
     addDoctor,
     removeDoctor,
     updateDoctor,
@@ -290,6 +431,7 @@ export function useAppState() {
     showToast,
     undo,
     redo,
+    toggleAutoHolidays,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
   }
