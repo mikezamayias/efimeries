@@ -5,6 +5,7 @@ export default defineNuxtConfig({
 
   modules: [
     '@nuxtjs/tailwindcss',
+    '@vite-pwa/nuxt',
   ],
 
   css: ['~/assets/css/main.css'],
@@ -24,6 +25,7 @@ export default defineNuxtConfig({
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       ],
     },
   },
@@ -32,5 +34,48 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'static',
+  },
+
+  pwa: {
+    strategies: 'generateSW',
+    registerType: 'autoUpdate',
+    manifest: {
+      name: 'Εφημερίες ΕΣΥ',
+      short_name: 'Εφημερίες',
+      description: 'Πρόγραμμα εφημεριών νοσοκομείου ΕΣΥ — Οργάνωση και διαχείριση βαρδιών',
+      lang: 'el',
+      theme_color: '#F5F5F7',
+      background_color: '#F5F5F7',
+      display: 'standalone',
+      orientation: 'portrait',
+      icons: [
+        {
+          src: '/icon-192x192.png',
+          sizes: '192x192',
+          type: 'image/png',
+        },
+        {
+          src: '/icon-512x512.png',
+          sizes: '512x512',
+          type: 'image/png',
+        },
+        {
+          src: '/icon-maskable-512x512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable',
+        },
+      ],
+    },
+    workbox: {
+      navigateFallback: '/index.html',
+      globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2,ttf}'],
+    },
+    client: {
+      installPrompt: true,
+    },
+    devOptions: {
+      enabled: false,
+    },
   },
 })

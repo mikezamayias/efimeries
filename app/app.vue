@@ -113,5 +113,6 @@ onUnmounted(() => {
     </nav>
 
     <AppToast />
+    <PwaInstallPrompt />
   </div>
 </template>
