@@ -100,17 +100,48 @@ function initShare() {
   supportsWebShare.value = typeof navigator !== 'undefined' && !!navigator.share
 }
 
-/** Copy text to clipboard — uses execCommand fallback for iOS Safari compatibility */
-async function copyToClipboard(text: string): Promise<boolean> {
-  // Always try execCommand first — it works synchronously in user gesture context on iOS
-  try {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.setAttribute('readonly', '')
-    textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0'
-    document.body.appendChild(textarea)
+/** Copy text to clipboard — iOS Safari compatible */
+function copyToClipboard(text: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    // Method 1: ClipboardItem with Blob (works on modern iOS Safari 13.4+)
+    if (navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+      try {
+        const blob = new Blob([text], { type: 'text/plain' })
+        const item = new ClipboardItem({ 'text/plain': blob })
+        navigator.clipboard.write([item]).then(() => resolve(true)).catch(() => {
+          resolve(fallbackCopy(text))
+        })
+        return
+      } catch {
+        // fall through
+      }
+    }
     
-    // iOS Safari specific: need to set selection range
+    // Method 2: clipboard.writeText
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => resolve(true)).catch(() => {
+        resolve(fallbackCopy(text))
+      })
+      return
+    }
+    
+    // Method 3: execCommand fallback
+    resolve(fallbackCopy(text))
+  })
+}
+
+function fallbackCopy(text: string): boolean {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  // Must be visible on iOS — off-screen doesn't work
+  textarea.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:none;outline:none;box-shadow:none;opacity:0.01'
+  document.body.appendChild(textarea)
+  
+  // iOS specific selection
+  if (navigator.userAgent.match(/ipad|ipod|iphone/i)) {
+    textarea.contentEditable = 'true'
+    textarea.readOnly = false
     const range = document.createRange()
     range.selectNodeContents(textarea)
     const sel = window.getSelection()
@@ -118,22 +149,19 @@ async function copyToClipboard(text: string): Promise<boolean> {
       sel.removeAllRanges()
       sel.addRange(range)
     }
-    textarea.setSelectionRange(0, text.length)
-    
-    const result = document.execCommand('copy')
-    document.body.removeChild(textarea)
-    if (result) return true
-  } catch {
-    // Fall through to Clipboard API
+    textarea.setSelectionRange(0, 999999)
+  } else {
+    textarea.select()
   }
   
-  // Fallback to Clipboard API
+  let result = false
   try {
-    await navigator.clipboard.writeText(text)
-    return true
+    result = document.execCommand('copy')
   } catch {
-    return false
+    result = false
   }
+  document.body.removeChild(textarea)
+  return result
 }
 
 /** Share via Web Share API */
