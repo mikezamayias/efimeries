@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight, Sun, Moon, Monitor } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Sun, Moon, Monitor, Undo2, Redo2 } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useTheme } from '~/composables/useTheme'
 import { MONTH_NAMES } from '~/utils/types'
 
-const { month, year, setMonth } = useAppState()
+const { month, year, setMonth, undo, redo, canUndo, canRedo } = useAppState()
 const { theme, cycleTheme } = useTheme()
 
 function prevMonth() {
@@ -26,15 +26,37 @@ function nextMonth() {
   <header class="sticky top-0 z-40 border-b border-border"
           style="background-color: var(--color-surface); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
     <div class="max-w-5xl mx-auto px-4 h-[49px] flex items-center justify-between">
-      <!-- Theme toggle -->
-      <button
-        class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
-        @click="cycleTheme"
-      >
-        <Sun v-if="theme === 'light'" class="w-[18px] h-[18px] text-muted" />
-        <Moon v-else-if="theme === 'dark'" class="w-[18px] h-[18px] text-muted" />
-        <Monitor v-else class="w-[18px] h-[18px] text-muted" />
-      </button>
+      <!-- Left: theme toggle + undo/redo -->
+      <div class="flex items-center gap-0.5">
+        <button
+          class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
+          @click="cycleTheme"
+        >
+          <Sun v-if="theme === 'light'" class="w-[18px] h-[18px] text-muted" />
+          <Moon v-else-if="theme === 'dark'" class="w-[18px] h-[18px] text-muted" />
+          <Monitor v-else class="w-[18px] h-[18px] text-muted" />
+        </button>
+
+        <button
+          class="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] transition-all"
+          :class="canUndo ? 'hover:bg-background active:scale-95 text-muted' : 'text-muted/30 cursor-default'"
+          :disabled="!canUndo"
+          title="Αναίρεση (⌘Z)"
+          @click="undo"
+        >
+          <Undo2 class="w-[16px] h-[16px]" />
+        </button>
+
+        <button
+          class="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] transition-all"
+          :class="canRedo ? 'hover:bg-background active:scale-95 text-muted' : 'text-muted/30 cursor-default'"
+          :disabled="!canRedo"
+          title="Επανάληψη (⌘⇧Z)"
+          @click="redo"
+        >
+          <Redo2 class="w-[16px] h-[16px]" />
+        </button>
+      </div>
 
       <!-- Month navigation -->
       <div class="flex items-center gap-2">
@@ -60,8 +82,8 @@ function nextMonth() {
         </button>
       </div>
 
-      <!-- Spacer for symmetry -->
-      <div class="w-[44px]" />
+      <!-- Spacer for visual balance -->
+      <div class="w-[116px]" />
     </div>
   </header>
 </template>

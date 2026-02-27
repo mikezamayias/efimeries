@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import {
   CalendarDays,
   List,
@@ -11,7 +11,7 @@ import { useAppState } from '~/composables/useAppState'
 import { useTheme } from '~/composables/useTheme'
 import { useHaptics } from '~/composables/useHaptics'
 
-const { initState, isLoaded } = useAppState()
+const { initState, isLoaded, undo, redo } = useAppState()
 useTheme()
 const haptics = useHaptics()
 
@@ -32,8 +32,30 @@ const tabs = [
   { label: 'Ρυθμίσεις', icon: Settings },
 ]
 
+function handleKeydown(e: KeyboardEvent) {
+  const isMeta = e.metaKey || e.ctrlKey
+  if (!isMeta || e.key.toLowerCase() !== 'z') return
+
+  // Don't intercept when typing in input/textarea
+  const tag = (e.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+  e.preventDefault()
+  if (e.shiftKey) {
+    redo()
+  }
+  else {
+    undo()
+  }
+}
+
 onMounted(() => {
   initState()
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
