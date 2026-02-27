@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin, History } from 'lucide-vue-next'
+import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin, History, HelpCircle } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
 import { useScheduleStore } from '~/composables/useScheduleStore'
@@ -16,6 +16,10 @@ const {
 } = useAppState()
 
 const scheduleStore = useScheduleStore()
+
+const emit = defineEmits<{
+  'restart-onboarding': []
+}>()
 
 const haptics = useHaptics()
 
@@ -446,6 +450,20 @@ function handleImport() {
             Εισαγωγή
           </button>
         </div>
+      </div>
+    </section>
+
+    <!-- Onboarding restart -->
+    <section>
+      <div class="card p-4">
+        <button
+          class="w-full flex items-center justify-center gap-2 py-3 rounded-[8px] border border-border
+                 text-[14px] text-foreground font-medium hover:bg-background active:scale-[0.98] transition-all min-h-[44px]"
+          @click="emit('restart-onboarding'); haptics.medium()"
+        >
+          <HelpCircle class="w-[16px] h-[16px] text-accent" />
+          Επανεκκίνηση οδηγού
+        </button>
       </div>
     </section>
 
