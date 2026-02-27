@@ -20,6 +20,23 @@ const { isReadOnly, sharedData, clearReadOnly, initShare } = useShare()
 
 const activeTab = ref(0)
 const shareSheetOpen = ref(false)
+const onboardingRef = ref<InstanceType<typeof import('./components/OnboardingOverlay.vue').default> | null>(null)
+
+// Track month navigation direction for slide animation
+const monthDirection = ref<'left' | 'right'>('right')
+const prevMonth = ref(month.value)
+const prevYear = ref(year.value)
+
+watch([month, year], ([newMonth, newYear], [oldMonth, oldYear]) => {
+  const newTotal = newYear * 12 + newMonth
+  const oldTotal = oldYear * 12 + oldMonth
+  monthDirection.value = newTotal > oldTotal ? 'left' : 'right'
+  prevMonth.value = newMonth
+  prevYear.value = newYear
+})
+
+// Tab transition name
+const tabTransition = ref('tab-fade')
 
 function switchTab(i: number) {
   if (activeTab.value !== i) {
@@ -28,14 +45,18 @@ function switchTab(i: number) {
   }
 }
 
+function restartOnboarding() {
+  onboardingRef.value?.show()
+}
+
 // In read-only mode, hide Marks and Settings tabs
 const allTabs = [
-  { label: 'Ημερολόγιο', icon: CalendarDays },
-  { label: 'Λίστα', icon: List },
-  { label: 'Στατιστικά', icon: BarChart3 },
-  { label: 'Τρίμηνο', icon: CalendarRange },
-  { label: 'Επιθυμίες', icon: Bookmark },
-  { label: 'Ρυθμίσεις', icon: Settings },
+  { label: 'Ημερολόγιο', icon: CalendarDays, dataTab: 'calendar' },
+  { label: 'Λίστα', icon: List, dataTab: 'list' },
+  { label: 'Στατιστικά', icon: BarChart3, dataTab: 'stats' },
+  { label: 'Τρίμηνο', icon: CalendarRange, dataTab: 'quarter' },
+  { label: 'Επιθυμίες', icon: Bookmark, dataTab: 'marks' },
+  { label: 'Ρυθμίσεις', icon: Settings, dataTab: 'settings' },
 ]
 
 const tabs = computed(() => {
@@ -102,6 +123,7 @@ onUnmounted(() => {
         <button
           v-for="(tab, i) in tabs"
           :key="i"
+          :data-tab="tab.dataTab"
           class="flex items-center gap-3 px-3 py-2.5 rounded-[8px] text-left transition-all min-h-[44px]"
           :class="activeTab === i
             ? 'bg-accent-soft text-accent font-semibold'
@@ -113,23 +135,35 @@ onUnmounted(() => {
         </button>
       </aside>
 
-      <!-- Main content -->
+      <!-- Main content with tab fade transition -->
       <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-4 pb-24 md:pb-6">
-        <template v-if="isReadOnly">
-          <!-- Read-only: only Calendar, List, Stats, Quarter -->
-          <CalendarPanel v-if="activeTab === 0" :read-only="true" />
-          <ListPanel v-else-if="activeTab === 1" />
-          <StatsPanel v-else-if="activeTab === 2" />
-          <QuarterPanel v-else-if="activeTab === 3" />
-        </template>
-        <template v-else>
-          <CalendarPanel v-if="activeTab === 0" />
-          <ListPanel v-else-if="activeTab === 1" />
-          <StatsPanel v-else-if="activeTab === 2" />
-          <QuarterPanel v-else-if="activeTab === 3" />
-          <MarksPanel v-else-if="activeTab === 4" />
-          <SettingsPanel v-else-if="activeTab === 5" />
-        </template>
+        <Transition
+          mode="out-in"
+          enter-active-class="transition-opacity duration-200 ease-out"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition-opacity duration-150 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div :key="activeTab">
+            <template v-if="isReadOnly">
+              <!-- Read-only: only Calendar, List, Stats, Quarter -->
+              <CalendarPanel v-if="activeTab === 0" :read-only="true" />
+              <ListPanel v-else-if="activeTab === 1" />
+              <StatsPanel v-else-if="activeTab === 2" />
+              <QuarterPanel v-else-if="activeTab === 3" />
+            </template>
+            <template v-else>
+              <CalendarPanel v-if="activeTab === 0" />
+              <ListPanel v-else-if="activeTab === 1" />
+              <StatsPanel v-else-if="activeTab === 2" />
+              <QuarterPanel v-else-if="activeTab === 3" />
+              <MarksPanel v-else-if="activeTab === 4" />
+              <SettingsPanel v-else-if="activeTab === 5" @restart-onboarding="restartOnboarding" />
+            </template>
+          </div>
+        </Transition>
       </main>
     </div>
 
@@ -145,6 +179,7 @@ onUnmounted(() => {
         <button
           v-for="(tab, i) in tabs"
           :key="i"
+          :data-tab="tab.dataTab"
           class="flex-1 flex flex-col items-center gap-1 py-2 transition-colors min-h-[52px]"
           :class="activeTab === i ? 'text-accent' : 'text-muted'"
           @click="switchTab(i)"
@@ -158,5 +193,6 @@ onUnmounted(() => {
     <AppToast />
     <PwaInstallPrompt />
     <ShareSheet :open="shareSheetOpen" @close="shareSheetOpen = false" />
+    <OnboardingOverlay ref="onboardingRef" />
   </div>
 </template>

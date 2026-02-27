@@ -6,12 +6,12 @@ const { toastMessage } = useAppState()
 
 <template>
   <Transition
-    enter-active-class="transition-all duration-300 ease-out"
-    enter-from-class="translate-y-4 opacity-0"
-    enter-to-class="translate-y-0 opacity-100"
-    leave-active-class="transition-all duration-200 ease-in"
-    leave-from-class="translate-y-0 opacity-100"
-    leave-to-class="translate-y-4 opacity-0"
+    enter-active-class="toast-enter-active"
+    enter-from-class="translate-y-6 opacity-0 scale-95"
+    enter-to-class="translate-y-0 opacity-100 scale-100"
+    leave-active-class="toast-leave-active"
+    leave-from-class="translate-y-0 opacity-100 scale-100"
+    leave-to-class="translate-y-6 opacity-0 scale-95"
   >
     <div
       v-if="toastMessage"
@@ -24,3 +24,12 @@ const { toastMessage } = useAppState()
     </div>
   </Transition>
 </template>
+
+<style scoped>
+.toast-enter-active {
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.toast-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 1, 1);
+}
+</style>

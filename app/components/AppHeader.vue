@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Sun, Moon, Monitor, Undo2, Redo2, Share2 } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useTheme } from '~/composables/useTheme'
@@ -13,7 +14,17 @@ const emit = defineEmits<{
   share: []
 }>()
 
+// Track navigation direction for slide animation
+const slideDirection = ref<'left' | 'right'>('right')
+const monthKey = ref(0)
+
+watch([month, year], (_new, _old) => {
+  // Direction is set before this watcher fires (from prevMonth/nextMonth)
+  monthKey.value++
+})
+
 function prevMonth() {
+  slideDirection.value = 'right' // content slides right (going back)
   let m = month.value - 1
   let y = year.value
   if (m < 0) { m = 11; y-- }
@@ -21,6 +32,7 @@ function prevMonth() {
 }
 
 function nextMonth() {
+  slideDirection.value = 'left' // content slides left (going forward)
   let m = month.value + 1
   let y = year.value
   if (m > 11) { m = 0; y++ }
@@ -66,7 +78,7 @@ function nextMonth() {
         </template>
       </div>
 
-      <!-- Month navigation -->
+      <!-- Month navigation with slide transition -->
       <div class="flex items-center gap-2">
         <button
           v-if="!isReadOnly"
@@ -76,11 +88,23 @@ function nextMonth() {
           <ChevronLeft class="w-[18px] h-[18px] text-muted" />
         </button>
 
-        <div class="text-center min-w-[130px]">
-          <div class="text-[16px] font-semibold text-foreground leading-tight tracking-tight">
-            {{ MONTH_NAMES[month] }}
-          </div>
-          <div class="text-[11px] text-muted font-medium">{{ year }}</div>
+        <div class="text-center min-w-[130px] overflow-hidden relative">
+          <Transition
+            :enter-active-class="`month-slide-enter-active`"
+            :enter-from-class="slideDirection === 'left' ? 'month-slide-enter-left' : 'month-slide-enter-right'"
+            enter-to-class="month-slide-enter-to"
+            :leave-active-class="`month-slide-leave-active`"
+            leave-from-class="month-slide-leave-from"
+            :leave-to-class="slideDirection === 'left' ? 'month-slide-leave-left' : 'month-slide-leave-right'"
+            mode="out-in"
+          >
+            <div :key="`${year}-${month}`">
+              <div class="text-[16px] font-semibold text-foreground leading-tight tracking-tight">
+                {{ MONTH_NAMES[month] }}
+              </div>
+              <div class="text-[11px] text-muted font-medium">{{ year }}</div>
+            </div>
+          </Transition>
         </div>
 
         <button
@@ -96,6 +120,7 @@ function nextMonth() {
       <div class="flex items-center justify-end">
         <button
           v-if="!isReadOnly"
+          id="share-btn"
           class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
           title="Κοινοποίηση"
           @click="emit('share')"
@@ -106,3 +131,37 @@ function nextMonth() {
     </div>
   </header>
 </template>
+
+<style scoped>
+/* Month slide transitions */
+.month-slide-enter-active,
+.month-slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.month-slide-enter-to,
+.month-slide-leave-from {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.month-slide-enter-left {
+  opacity: 0;
+  transform: translateX(24px);
+}
+
+.month-slide-enter-right {
+  opacity: 0;
+  transform: translateX(-24px);
+}
+
+.month-slide-leave-left {
+  opacity: 0;
+  transform: translateX(-24px);
+}
+
+.month-slide-leave-right {
+  opacity: 0;
+  transform: translateX(24px);
+}
+</style>

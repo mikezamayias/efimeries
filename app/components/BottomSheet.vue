@@ -25,10 +25,10 @@ const emit = defineEmits<{
     </Transition>
 
     <Transition
-      enter-active-class="transition-transform duration-300 ease-out"
+      enter-active-class="bottom-sheet-enter-active"
       enter-from-class="translate-y-full"
       enter-to-class="translate-y-0"
-      leave-active-class="transition-transform duration-200 ease-in"
+      leave-active-class="bottom-sheet-leave-active"
       leave-from-class="translate-y-0"
       leave-to-class="translate-y-full"
     >
@@ -61,3 +61,12 @@ const emit = defineEmits<{
     </Transition>
   </Teleport>
 </template>
+
+<style scoped>
+.bottom-sheet-enter-active {
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bottom-sheet-leave-active {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 1, 1);
+}
+</style>
