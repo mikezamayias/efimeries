@@ -15,6 +15,19 @@ function applyTheme() {
   }
   resolved.value = effective
   document.documentElement.setAttribute('data-theme', effective)
+
+  // Update theme-color meta to match, so browser chrome (status bar, nav bar) follows
+  const color = effective === 'dark' ? '#000000' : '#F5F5F7'
+  document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: light)"]')?.setAttribute('content', color)
+  document.querySelector('meta[name="theme-color"][media="(prefers-color-scheme: dark)"]')?.setAttribute('content', color)
+  // Also set/create a non-media theme-color for PWA standalone mode
+  let meta = document.querySelector('meta[name="theme-color"]:not([media])') as HTMLMetaElement | null
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    document.head.appendChild(meta)
+  }
+  meta.content = color
 }
 
 export function useTheme() {
