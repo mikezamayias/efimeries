@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import {
   CalendarDays,
   List,
@@ -11,12 +11,15 @@ import {
 import { useAppState } from '~/composables/useAppState'
 import { useTheme } from '~/composables/useTheme'
 import { useHaptics } from '~/composables/useHaptics'
+import { useShare } from '~/composables/useShare'
 
-const { initState, isLoaded, undo, redo } = useAppState()
+const { initState, isLoaded, undo, redo, importData, loadSharedData, enableSaving, doctors, schedule, marks, month, year, showToast } = useAppState()
 useTheme()
 const haptics = useHaptics()
+const { isReadOnly, sharedData, clearReadOnly, initShare } = useShare()
 
 const activeTab = ref(0)
+const shareSheetOpen = ref(false)
 
 function switchTab(i: number) {
   if (activeTab.value !== i) {
@@ -25,7 +28,8 @@ function switchTab(i: number) {
   }
 }
 
-const tabs = [
+// In read-only mode, hide Marks and Settings tabs
+const allTabs = [
   { label: 'Ημερολόγιο', icon: CalendarDays },
   { label: 'Λίστα', icon: List },
   { label: 'Στατιστικά', icon: BarChart3 },
@@ -33,6 +37,14 @@ const tabs = [
   { label: 'Επιθυμίες', icon: Bookmark },
   { label: 'Ρυθμίσεις', icon: Settings },
 ]
+
+const tabs = computed(() => {
+  if (isReadOnly.value) {
+    // Hide Marks (index 4) and Settings (index 5) in read-only
+    return allTabs.filter((_, i) => i !== 4 && i !== 5)
+  }
+  return allTabs
+})
 
 function handleKeydown(e: KeyboardEvent) {
   const isMeta = e.metaKey || e.ctrlKey
@@ -51,8 +63,24 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+/** Import shared data into own state (exits read-only and saves) */
+function importSharedData() {
+  if (!sharedData.value) return
+  enableSaving()
+  importData(sharedData.value)
+  clearReadOnly()
+  showToast('Τα δεδομένα αντιγράφηκαν!')
+}
+
 onMounted(() => {
+  initShare()
   initState()
+
+  // If shared data is present, load it after init (read-only, no saving)
+  if (sharedData.value && isReadOnly.value) {
+    loadSharedData(sharedData.value)
+  }
+
   window.addEventListener('keydown', handleKeydown)
 })
 
@@ -63,7 +91,10 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-[100dvh] bg-background font-sans flex flex-col">
-    <AppHeader />
+    <AppHeader @share="shareSheetOpen = true" />
+
+    <!-- Read-only banner -->
+    <ReadOnlyBanner v-if="isReadOnly && isLoaded" @import="importSharedData" />
 
     <div v-if="isLoaded" class="flex-1 flex">
       <!-- Desktop sidebar -->
@@ -84,12 +115,21 @@ onUnmounted(() => {
 
       <!-- Main content -->
       <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-4 pb-24 md:pb-6">
-        <CalendarPanel v-if="activeTab === 0" />
-        <ListPanel v-else-if="activeTab === 1" />
-        <StatsPanel v-else-if="activeTab === 2" />
-        <QuarterPanel v-else-if="activeTab === 3" />
-        <MarksPanel v-else-if="activeTab === 4" />
-        <SettingsPanel v-else-if="activeTab === 5" />
+        <template v-if="isReadOnly">
+          <!-- Read-only: only Calendar, List, Stats, Quarter -->
+          <CalendarPanel v-if="activeTab === 0" :read-only="true" />
+          <ListPanel v-else-if="activeTab === 1" />
+          <StatsPanel v-else-if="activeTab === 2" />
+          <QuarterPanel v-else-if="activeTab === 3" />
+        </template>
+        <template v-else>
+          <CalendarPanel v-if="activeTab === 0" />
+          <ListPanel v-else-if="activeTab === 1" />
+          <StatsPanel v-else-if="activeTab === 2" />
+          <QuarterPanel v-else-if="activeTab === 3" />
+          <MarksPanel v-else-if="activeTab === 4" />
+          <SettingsPanel v-else-if="activeTab === 5" />
+        </template>
       </main>
     </div>
 
@@ -117,5 +157,6 @@ onUnmounted(() => {
 
     <AppToast />
     <PwaInstallPrompt />
+    <ShareSheet :open="shareSheetOpen" @close="shareSheetOpen = false" />
   </div>
 </template>

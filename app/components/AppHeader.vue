@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight, Sun, Moon, Monitor, Undo2, Redo2 } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, Sun, Moon, Monitor, Undo2, Redo2, Share2 } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useTheme } from '~/composables/useTheme'
+import { useShare } from '~/composables/useShare'
 import { MONTH_NAMES } from '~/utils/types'
 
 const { month, year, setMonth, undo, redo, canUndo, canRedo } = useAppState()
 const { theme, cycleTheme } = useTheme()
+const { isReadOnly } = useShare()
+
+const emit = defineEmits<{
+  share: []
+}>()
 
 function prevMonth() {
   let m = month.value - 1
@@ -37,30 +43,33 @@ function nextMonth() {
           <Monitor v-else class="w-[18px] h-[18px] text-muted" />
         </button>
 
-        <button
-          class="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] transition-all"
-          :class="canUndo ? 'hover:bg-background active:scale-95 text-muted' : 'text-muted/30 cursor-default'"
-          :disabled="!canUndo"
-          title="Αναίρεση (⌘Z)"
-          @click="undo"
-        >
-          <Undo2 class="w-[16px] h-[16px]" />
-        </button>
+        <template v-if="!isReadOnly">
+          <button
+            class="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] transition-all"
+            :class="canUndo ? 'hover:bg-background active:scale-95 text-muted' : 'text-muted/30 cursor-default'"
+            :disabled="!canUndo"
+            title="Αναίρεση (⌘Z)"
+            @click="undo"
+          >
+            <Undo2 class="w-[16px] h-[16px]" />
+          </button>
 
-        <button
-          class="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] transition-all"
-          :class="canRedo ? 'hover:bg-background active:scale-95 text-muted' : 'text-muted/30 cursor-default'"
-          :disabled="!canRedo"
-          title="Επανάληψη (⌘⇧Z)"
-          @click="redo"
-        >
-          <Redo2 class="w-[16px] h-[16px]" />
-        </button>
+          <button
+            class="w-[36px] h-[36px] flex items-center justify-center rounded-[8px] transition-all"
+            :class="canRedo ? 'hover:bg-background active:scale-95 text-muted' : 'text-muted/30 cursor-default'"
+            :disabled="!canRedo"
+            title="Επανάληψη (⌘⇧Z)"
+            @click="redo"
+          >
+            <Redo2 class="w-[16px] h-[16px]" />
+          </button>
+        </template>
       </div>
 
       <!-- Month navigation -->
       <div class="flex items-center gap-2">
         <button
+          v-if="!isReadOnly"
           class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
           @click="prevMonth"
         >
@@ -75,6 +84,7 @@ function nextMonth() {
         </div>
 
         <button
+          v-if="!isReadOnly"
           class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
           @click="nextMonth"
         >
@@ -82,8 +92,17 @@ function nextMonth() {
         </button>
       </div>
 
-      <!-- Spacer for visual balance -->
-      <div class="w-[116px]" />
+      <!-- Right: share button + spacer for balance -->
+      <div class="flex items-center justify-end w-[116px]">
+        <button
+          v-if="!isReadOnly"
+          class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
+          title="Κοινοποίηση"
+          @click="emit('share')"
+        >
+          <Share2 class="w-[18px] h-[18px] text-muted" />
+        </button>
+      </div>
     </div>
   </header>
 </template>

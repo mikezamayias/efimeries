@@ -34,6 +34,9 @@ let nextCustomHolidayId = 1
 // Flag to suppress history recording during undo/redo restore
 let isRestoring = false
 
+// Flag to suppress saving to localStorage (used in read-only shared view)
+const isSavingDisabled = ref(false)
+
 let saveTimeout: ReturnType<typeof setTimeout> | null = null
 
 function showToast(msg: string) {
@@ -44,6 +47,7 @@ function showToast(msg: string) {
 }
 
 function saveState() {
+  if (isSavingDisabled.value) return
   if (saveTimeout) clearTimeout(saveTimeout)
   saveTimeout = setTimeout(() => {
     try {
@@ -403,6 +407,26 @@ export function useAppState() {
     })
   }
 
+  /** Load shared data in read-only mode (with schedule, no saving) */
+  function loadSharedData(data: any) {
+    isSavingDisabled.value = true
+    if (data.doctors) doctors.value = data.doctors
+    if (data.marks) marks.value = data.marks
+    if (data.constraints) constraints.value = { ...DEFAULT_CONSTRAINTS, ...data.constraints }
+    if (data.month !== undefined) month.value = data.month
+    if (data.year !== undefined) year.value = data.year
+    if (data.nextId) nextId.value = data.nextId
+    if (data.schedule) {
+      schedule.value = data.schedule
+      stats.value = recalculateStats(data.schedule, doctors.value, data.year ?? year.value, data.month ?? month.value, data.marks ?? marks.value)
+    }
+  }
+
+  /** Re-enable saving (when exiting read-only mode) */
+  function enableSaving() {
+    isSavingDisabled.value = false
+  }
+
   function undo() {
     const before = takeSnapshot()
     const snapshot = history.popUndo()
@@ -507,6 +531,8 @@ export function useAppState() {
     setMonth,
     resetAll,
     importData,
+    loadSharedData,
+    enableSaving,
     initState,
     showToast,
     undo,

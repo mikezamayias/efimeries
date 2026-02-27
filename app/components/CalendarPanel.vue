@@ -11,6 +11,12 @@ import {
 } from '~/utils/types'
 import { exportToExcel, exportToPDF, exportToICS } from '~/utils/exports'
 
+const props = withDefaults(defineProps<{
+  readOnly?: boolean
+}>(), {
+  readOnly: false,
+})
+
 const {
   doctors, month, year, marks, schedule, stats, daysInMonth,
   generate, assignDay, holidayMap,
@@ -122,45 +128,47 @@ function doExportICS(doctorId?: number | null) {
 
 <template>
   <div class="space-y-3">
-    <!-- Generate & Export -->
-    <div class="flex gap-2">
-      <button class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]" @click="generate(); haptics.success()">
-        <Sparkles class="w-[16px] h-[16px]" />
-        Δημιουργία Προγράμματος
-      </button>
-      <button
-        v-if="schedule"
-        class="btn-secondary flex items-center justify-center w-[48px] h-[48px]"
-        @click="showExports = !showExports"
-      >
-        <FileSpreadsheet class="w-[18px] h-[18px]" />
-      </button>
-    </div>
-
-    <!-- Export options -->
-    <Transition
-      enter-active-class="transition-all duration-200"
-      enter-from-class="opacity-0 -translate-y-1"
-      enter-to-class="opacity-100 translate-y-0"
-      leave-active-class="transition-all duration-150"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
-    >
-      <div v-if="showExports && schedule" class="flex gap-2">
-        <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="doExportExcel">
-          <FileSpreadsheet class="w-[16px] h-[16px] text-positive" />
-          Excel
+    <!-- Generate & Export (hidden in read-only) -->
+    <template v-if="!readOnly">
+      <div class="flex gap-2">
+        <button class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]" @click="generate(); haptics.success()">
+          <Sparkles class="w-[16px] h-[16px]" />
+          Δημιουργία Προγράμματος
         </button>
-        <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="doExportPDF">
-          <FileText class="w-[16px] h-[16px] text-danger" />
-          PDF
-        </button>
-        <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="openICSSelector">
-          <CalendarDays class="w-[16px] h-[16px] text-accent" />
-          ICS
+        <button
+          v-if="schedule"
+          class="btn-secondary flex items-center justify-center w-[48px] h-[48px]"
+          @click="showExports = !showExports"
+        >
+          <FileSpreadsheet class="w-[18px] h-[18px]" />
         </button>
       </div>
-    </Transition>
+
+      <!-- Export options -->
+      <Transition
+        enter-active-class="transition-all duration-200"
+        enter-from-class="opacity-0 -translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition-all duration-150"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="showExports && schedule" class="flex gap-2">
+          <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="doExportExcel">
+            <FileSpreadsheet class="w-[16px] h-[16px] text-positive" />
+            Excel
+          </button>
+          <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="doExportPDF">
+            <FileText class="w-[16px] h-[16px] text-danger" />
+            PDF
+          </button>
+          <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="openICSSelector">
+            <CalendarDays class="w-[16px] h-[16px] text-accent" />
+            ICS
+          </button>
+        </div>
+      </Transition>
+    </template>
 
     <!-- Calendar Grid -->
     <div class="card overflow-hidden">
@@ -192,7 +200,7 @@ function doExportICS(doctorId?: number | null) {
             cell.day !== null && hasLeaveOrSick(cell.index) === 'leave' ? 'ring-1 ring-inset ring-amber-400/30' : '',
             cell.day !== null && hasLeaveOrSick(cell.index) === 'sick' ? 'ring-1 ring-inset ring-red-400/30' : '',
           ]"
-          @click="cell.day !== null && openSheet(cell.index)"
+          @click="cell.day !== null && !readOnly && openSheet(cell.index)"
         >
           <template v-if="cell.day !== null">
             <span
