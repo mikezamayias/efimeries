@@ -34,17 +34,16 @@ function getSharePayload() {
 }
 
 async function handleCopyLink() {
-  if (!schedule.value) {
-    showToast('Δημιουργήστε πρώτα πρόγραμμα')
-    return
-  }
-  const url = buildShareUrl(getSharePayload())
-  const ok = await copyToClipboard(url)
-  if (ok) {
-    showToast('Ο σύνδεσμος αντιγράφηκε!')
-  }
-  else {
-    showToast('Σφάλμα αντιγραφής')
+  try {
+    if (!schedule.value) {
+      showToast('Δημιουργήστε πρώτα πρόγραμμα')
+      return
+    }
+    const url = buildShareUrl(getSharePayload())
+    const ok = await copyToClipboard(url)
+    showToast(ok ? 'Ο σύνδεσμος αντιγράφηκε!' : 'Σφάλμα αντιγραφής')
+  } catch (e: any) {
+    showToast(`Error: ${e?.message ?? 'unknown'}`)
   }
   emit('close')
 }

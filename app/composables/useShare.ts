@@ -100,23 +100,39 @@ function initShare() {
   supportsWebShare.value = typeof navigator !== 'undefined' && !!navigator.share
 }
 
-/** Copy text to clipboard */
+/** Copy text to clipboard — uses execCommand fallback for iOS Safari compatibility */
 async function copyToClipboard(text: string): Promise<boolean> {
+  // Always try execCommand first — it works synchronously in user gesture context on iOS
+  try {
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.setAttribute('readonly', '')
+    textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0'
+    document.body.appendChild(textarea)
+    
+    // iOS Safari specific: need to set selection range
+    const range = document.createRange()
+    range.selectNodeContents(textarea)
+    const sel = window.getSelection()
+    if (sel) {
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    textarea.setSelectionRange(0, text.length)
+    
+    const result = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    if (result) return true
+  } catch {
+    // Fall through to Clipboard API
+  }
+  
+  // Fallback to Clipboard API
   try {
     await navigator.clipboard.writeText(text)
     return true
-  }
-  catch {
-    // Fallback
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.opacity = '0'
-    document.body.appendChild(textarea)
-    textarea.select()
-    const result = document.execCommand('copy')
-    document.body.removeChild(textarea)
-    return result
+  } catch {
+    return false
   }
 }
 
