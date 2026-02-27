@@ -136,11 +136,10 @@ async function handleWebShare() {
     return
   }
   const url = buildShareUrl(getSharePayload())
-  const text = formatScheduleText(appState.schedule.value!, appState.doctors.value, appState.year.value, appState.month.value, appState.marks.value)
   const monthName = MONTH_NAMES[appState.month.value] ?? ''
   const title = `Εφημερίες — ${monthName} ${appState.year.value}`
 
-  const ok = await webShare(title, text, url)
+  const ok = await webShare(title, '', url)
   if (ok) {
     emit('close')
   }
