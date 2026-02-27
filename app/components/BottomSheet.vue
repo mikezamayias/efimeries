@@ -21,7 +21,7 @@ const emit = defineEmits<{
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div v-if="open" class="fixed inset-0 bg-black/40 z-50" @click="emit('close')" />
+      <div v-if="open" class="fixed inset-0 bg-black/40 z-[50]" @click="emit('close')" />
     </Transition>
 
     <Transition
@@ -34,7 +34,7 @@ const emit = defineEmits<{
     >
       <div
         v-if="open"
-        class="fixed bottom-0 left-0 right-0 z-50 rounded-t-[16px] shadow-2xl max-h-[70vh] flex flex-col safe-bottom"
+        class="fixed bottom-0 left-0 right-0 z-[51] rounded-t-[16px] shadow-2xl max-h-[70vh] flex flex-col safe-bottom"
         style="background-color: var(--color-surface)"
       >
         <!-- Handle -->

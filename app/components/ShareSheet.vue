@@ -34,6 +34,10 @@ function getSharePayload() {
 }
 
 async function handleCopyLink() {
+  if (!schedule.value) {
+    showToast('Δημιουργήστε πρώτα πρόγραμμα')
+    return
+  }
   const url = buildShareUrl(getSharePayload())
   const ok = await copyToClipboard(url)
   if (ok) {
@@ -46,6 +50,10 @@ async function handleCopyLink() {
 }
 
 async function handleShowQR() {
+  if (!schedule.value) {
+    showToast('Δημιουργήστε πρώτα πρόγραμμα')
+    return
+  }
   showQR.value = true
   await nextTick()
   const url = buildShareUrl(getSharePayload())

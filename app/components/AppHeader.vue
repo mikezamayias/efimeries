@@ -92,8 +92,8 @@ function nextMonth() {
         </button>
       </div>
 
-      <!-- Right: share button + spacer for balance -->
-      <div class="flex items-center justify-end w-[116px]">
+      <!-- Right: share button -->
+      <div class="flex items-center justify-end">
         <button
           v-if="!isReadOnly"
           class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px] hover:bg-background active:scale-95 transition-all"
