@@ -15,27 +15,28 @@ const emit = defineEmits<{
   close: []
 }>()
 
-const { doctors, schedule, marks, month, year, constraints, nextId, showToast } = useAppState()
+const appState = useAppState()
 const { copyToClipboard, webShare, supportsWebShare } = useShare()
+const { showToast } = appState
 
 const showQR = ref(false)
 const qrDataUrl = ref('')
 
 function getSharePayload() {
   return {
-    doctors: doctors.value,
-    schedule: schedule.value,
-    marks: marks.value,
-    month: month.value,
-    year: year.value,
-    constraints: constraints.value,
-    nextId: nextId.value,
+    doctors: appState.doctors.value,
+    schedule: appState.schedule.value,
+    marks: appState.marks.value,
+    month: appState.month.value,
+    year: appState.year.value,
+    constraints: appState.constraints.value,
+    nextId: appState.doctors.value.length + 1,
   }
 }
 
 async function handleCopyLink() {
   try {
-    if (!schedule.value) {
+    if (!appState.schedule.value) {
       showToast('Δημιουργήστε πρώτα πρόγραμμα')
       return
     }
@@ -49,7 +50,7 @@ async function handleCopyLink() {
 }
 
 async function handleShowQR() {
-  if (!schedule.value) {
+  if (!appState.schedule.value) {
     showToast('Δημιουργήστε πρώτα πρόγραμμα')
     return
   }
@@ -74,8 +75,8 @@ function handleBackFromQR() {
 }
 
 function handlePrintQR() {
-  const monthName = MONTH_NAMES[month.value] ?? ''
-  const title = `Εφημερίες — ${monthName} ${year.value}`
+  const monthName = MONTH_NAMES[appState.month.value] ?? ''
+  const title = `Εφημερίες — ${monthName} ${appState.year.value}`
   const printWindow = window.open('', '_blank', 'width=400,height=500')
   if (!printWindow) return
 
@@ -114,11 +115,11 @@ function handlePrintQR() {
 }
 
 async function handleCopyText() {
-  if (!schedule.value) {
+  if (!appState.schedule.value) {
     showToast('Δεν υπάρχει πρόγραμμα')
     return
   }
-  const text = formatScheduleText(schedule.value, doctors.value, year.value, month.value, marks.value)
+  const text = formatScheduleText(appState.schedule.value!, appState.doctors.value, appState.year.value, appState.month.value, appState.marks.value)
   const ok = await copyToClipboard(text)
   if (ok) {
     showToast('Το κείμενο αντιγράφηκε!')
@@ -130,14 +131,14 @@ async function handleCopyText() {
 }
 
 async function handleWebShare() {
-  if (!schedule.value) {
+  if (!appState.schedule.value) {
     showToast('Δεν υπάρχει πρόγραμμα')
     return
   }
   const url = buildShareUrl(getSharePayload())
-  const text = formatScheduleText(schedule.value, doctors.value, year.value, month.value, marks.value)
-  const monthName = MONTH_NAMES[month.value] ?? ''
-  const title = `Εφημερίες — ${monthName} ${year.value}`
+  const text = formatScheduleText(appState.schedule.value!, appState.doctors.value, appState.year.value, appState.month.value, appState.marks.value)
+  const monthName = MONTH_NAMES[appState.month.value] ?? ''
+  const title = `Εφημερίες — ${monthName} ${appState.year.value}`
 
   const ok = await webShare(title, text, url)
   if (ok) {
