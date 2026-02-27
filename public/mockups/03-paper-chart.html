@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>3/5 — Paper Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FAF9F7;
+    --surface: #FFFFFF;
+    --text: #1C1917;
+    --text-secondary: #78716C;
+    --accent: #0C4A6E;
+    --accent-soft: #F0F9FF;
+    --border: #D6D3D1;
+    --weekend-bg: #FFFBEB;
+    --weekend-text: #92400E;
+    --danger: #B91C1C;
+    --success: #166534;
+    --radius: 4px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding-bottom: 80px;
+  }
+
+  header {
+    background: var(--accent);
+    color: white;
+    padding: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .h-brand { font-family: 'Source Serif 4', serif; font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .month-nav { display: flex; align-items: center; gap: 8px; }
+  .month-nav button {
+    width: 32px; height: 32px; border: 1px solid rgba(255,255,255,0.3); background: none;
+    border-radius: 4px; font-size: 16px; color: white; cursor: pointer;
+  }
+  .month-title { text-align: center; }
+  .month-title h2 { font-family: 'Source Serif 4', serif; font-size: 18px; font-weight: 700; }
+  .month-title span { font-size: 12px; opacity: 0.7; }
+
+  .actions { padding: 12px 16px; display: flex; gap: 8px; }
+  .btn-generate {
+    flex: 1; padding: 12px; border: 2px solid var(--accent); border-radius: var(--radius);
+    background: var(--accent); color: white; font-weight: 600; font-size: 13px;
+    cursor: pointer; font-family: 'Source Sans 3', sans-serif;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .btn-export {
+    width: 44px; height: 44px; border: 2px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); cursor: pointer; font-size: 14px;
+  }
+
+  .calendar { margin: 0 16px; background: var(--surface); border: 2px solid var(--border); overflow: hidden; }
+  .cal-header { display: grid; grid-template-columns: repeat(7, 1fr); background: #F5F5F4; border-bottom: 2px solid var(--border); }
+  .cal-header span {
+    text-align: center; padding: 8px 0; font-size: 11px; font-weight: 700;
+    color: var(--text); letter-spacing: 1px; text-transform: uppercase;
+  }
+  .cal-header span:nth-child(6), .cal-header span:nth-child(7) { color: var(--weekend-text); background: #FEF3C7; }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .cal-cell {
+    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    aspect-ratio: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px; padding: 2px;
+    min-height: 52px;
+  }
+  .cal-cell:nth-child(7n) { border-right: none; }
+  .cal-cell.weekend { background: var(--weekend-bg); }
+  .cal-cell.empty { background: #F5F5F4; }
+  .cal-cell .day { font-size: 13px; font-weight: 700; color: var(--text); font-family: 'Source Serif 4', serif; }
+  .cal-cell.weekend .day { color: var(--weekend-text); }
+  .cal-cell .doc {
+    font-size: 7.5px; font-weight: 700; color: white; padding: 2px 5px;
+    max-width: 95%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; letter-spacing: 0.3px; text-transform: uppercase;
+  }
+
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+    background: var(--surface);
+    border-top: 2px solid var(--border);
+    padding: 4px 0 calc(4px + env(safe-area-inset-bottom));
+    display: flex;
+  }
+  nav button {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 8px 0; border: none; background: none; cursor: pointer;
+    font-size: 9px; font-weight: 600; color: var(--text-secondary);
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  nav button.active { color: var(--accent); border-top: 3px solid var(--accent); margin-top: -3px; }
+  nav button svg { width: 18px; height: 18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="h-brand">Εφημερίες ΕΣΥ</span>
+  <div class="month-nav">
+    <button>‹</button>
+    <div class="month-title">
+      <h2>Μάρτιος</h2>
+      <span>2026</span>
+    </div>
+    <button>›</button>
+  </div>
+  <div style="width:32px"></div>
+</header>
+
+<div class="actions">
+  <button class="btn-generate">Δημιουργία Προγράμματος</button>
+  <button class="btn-export">⤓</button>
+</div>
+
+<div class="calendar">
+  <div class="cal-header">
+    <span>Δε</span><span>Τρ</span><span>Τε</span><span>Πε</span><span>Πα</span><span>Σα</span><span>Κυ</span>
+  </div>
+  <div class="cal-grid" id="grid"></div>
+</div>
+
+<nav>
+  <button class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Ημερολόγιο
+  </button>
+  <button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Λίστα
+  </button>
+  <button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Στατιστικά
+  </button>
+  <button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+    Επιθυμίες
+  </button>
+  <button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Ρυθμίσεις
+  </button>
+</nav>
+
+<script>
+const doctors = [
+  { name: 'Μάρκου', color: '#0C4A6E' },
+  { name: 'Μαυρογ', color: '#166534' },
+  { name: 'Λαμπαδ', color: '#6B21A8' },
+  { name: 'Κάντα', color: '#B91C1C' },
+  { name: 'Κοντογ', color: '#9A3412' },
+];
+const schedule = [null,0,1,2,3,1,4,3,0,1,4,1,3,4,0,3,1,2,4,1,4,0,4,3,2,1,0,4,3,0,4];
+const grid = document.getElementById('grid');
+for (let i = 0; i < 6; i++) {
+  const c = document.createElement('div');
+  c.className = 'cal-cell empty';
+  grid.appendChild(c);
+}
+for (let d = 1; d <= 31; d++) {
+  const dow = new Date(2026, 2, d).getDay();
+  const isWknd = dow === 0 || dow === 6;
+  const c = document.createElement('div');
+  c.className = 'cal-cell' + (isWknd ? ' weekend' : '');
+  const docIdx = schedule[d-1];
+  let html = `<span class="day">${d}</span>`;
+  if (docIdx !== null) {
+    const doc = doctors[docIdx];
+    html += `<span class="doc" style="background:${doc.color}">${doc.name}</span>`;
+  }
+  c.innerHTML = html;
+  grid.appendChild(c);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package } from 'lucide-vue-next'
+import { useAppState } from '~/composables/useAppState'
+import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS } from '~/utils/types'
+import type { DoctorType } from '~/utils/types'
+
+const {
+  doctors, marks, constraints, month, year,
+  addDoctor, removeDoctor, updateDoctor, resetAll, showToast,
+  importData,
+} = useAppState()
+
+const newName = ref('')
+const newType = ref<DoctorType>('eidikevomenos')
+const showConfirmReset = ref(false)
+const editingId = ref<number | null>(null)
+const editName = ref('')
+
+function handleAdd() {
+  const name = newName.value.trim()
+  if (!name) return
+  addDoctor(name, newType.value)
+  newName.value = ''
+}
+
+function startEdit(id: number, name: string) {
+  editingId.value = id
+  editName.value = name
+}
+
+function saveEdit(id: number) {
+  const name = editName.value.trim()
+  if (name) updateDoctor(id, { name })
+  editingId.value = null
+}
+
+function confirmReset() {
+  resetAll()
+  showConfirmReset.value = false
+}
+
+function exportData() {
+  const data = { doctors: doctors.value, marks: marks.value, constraints: constraints.value, month: month.value, year: year.value }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `efimeries-data.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  showToast('Εξαγωγή ολοκληρώθηκε')
+}
+
+function handleImport() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0]
+    if (!file) return
+    try {
+      const text = (await file.text()).replace(/^\uFEFF/, '')
+      importData(JSON.parse(text))
+      showToast('Εισαγωγή ολοκληρώθηκε')
+    } catch { showToast('Σφάλμα κατά την εισαγωγή') }
+  }
+  input.click()
+}
+</script>
+
+<template>
+  <div class="space-y-6">
+    <!-- Doctors -->
+    <section>
+      <h2 class="section-title mb-3 flex items-center gap-2">
+        <Users class="w-[16px] h-[16px] text-muted" />
+        Γιατροί
+      </h2>
+
+      <div class="space-y-2">
+        <div
+          v-for="doc in doctors"
+          :key="doc.id"
+          class="card flex items-center gap-3 px-4 py-3"
+        >
+          <div class="w-[12px] h-[12px] rounded-full flex-shrink-0" :style="{ backgroundColor: DOCTOR_COLORS[doc.colorIndex] }" />
+
+          <div class="flex-1 min-w-0">
+            <template v-if="editingId === doc.id">
+              <input
+                v-model="editName"
+                class="w-full rounded-[6px] px-3 py-1.5 text-[14px] text-foreground border border-border
+                       focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                style="background-color: var(--color-bg)"
+                @keyup.enter="saveEdit(doc.id)"
+                @blur="saveEdit(doc.id)"
+              >
+            </template>
+            <template v-else>
+              <div class="text-[14px] font-medium text-foreground cursor-pointer hover:text-accent transition-colors"
+                   @click="startEdit(doc.id, doc.name)">
+                {{ doc.name }}
+              </div>
+            </template>
+          </div>
+
+          <select
+            :value="doc.type"
+            class="text-[12px] rounded-[6px] px-2 py-1.5 text-muted border border-border
+                   focus:outline-none focus:ring-2 focus:ring-accent/30"
+            style="background-color: var(--color-bg); color: var(--color-text-secondary)"
+            @change="updateDoctor(doc.id, { type: ($event.target as HTMLSelectElement).value as DoctorType })"
+          >
+            <option value="eidikevomenos">{{ DOCTOR_TYPE_LABELS.eidikevomenos }}</option>
+            <option value="agrotikos">{{ DOCTOR_TYPE_LABELS.agrotikos }}</option>
+          </select>
+
+          <button
+            class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px]
+                   text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+            @click="removeDoctor(doc.id)"
+          >
+            <Trash2 class="w-[16px] h-[16px]" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Add doctor -->
+      <div class="mt-3 card p-4">
+        <div class="flex flex-col gap-2">
+          <div class="flex gap-2">
+            <input
+              v-model="newName"
+              placeholder="Όνομα γιατρού..."
+              class="flex-1 min-w-0 rounded-[8px] px-3 py-2.5 text-[14px] text-foreground border border-border
+                     focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                     placeholder:text-muted/50"
+              style="background-color: var(--color-bg)"
+              @keyup.enter="handleAdd"
+            >
+            <select
+              v-model="newType"
+              class="rounded-[8px] px-3 py-2.5 text-[13px] border border-border
+                     focus:outline-none focus:ring-2 focus:ring-accent/30"
+              style="background-color: var(--color-bg); color: var(--color-text)"
+            >
+              <option value="eidikevomenos">{{ DOCTOR_TYPE_LABELS.eidikevomenos }}</option>
+              <option value="agrotikos">{{ DOCTOR_TYPE_LABELS.agrotikos }}</option>
+            </select>
+          </div>
+          <button class="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px] text-[14px]" @click="handleAdd">
+            <Plus class="w-[16px] h-[16px]" />
+            Προσθήκη
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Constraints -->
+    <section>
+      <h2 class="section-title mb-3 flex items-center gap-2">
+        <SlidersHorizontal class="w-[16px] h-[16px] text-muted" />
+        Κανόνες
+      </h2>
+      <div class="card p-4 space-y-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1">
+            <div class="text-[14px] font-medium text-foreground">Ελάχιστο κενό</div>
+            <div class="text-[12px] text-muted mt-0.5">Ημέρες μεταξύ εφημεριών</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              class="w-[36px] h-[36px] rounded-[6px] flex items-center justify-center
+                     font-semibold text-foreground border border-border hover:bg-background active:scale-95"
+              style="background-color: var(--color-bg)"
+              @click="constraints.minGap = Math.max(2, constraints.minGap - 1)"
+            >−</button>
+            <span class="w-[28px] text-center text-[15px] font-semibold text-foreground">{{ constraints.minGap }}</span>
+            <button
+              class="w-[36px] h-[36px] rounded-[6px] flex items-center justify-center
+                     font-semibold text-foreground border border-border hover:bg-background active:scale-95"
+              style="background-color: var(--color-bg)"
+              @click="constraints.minGap = Math.min(5, constraints.minGap + 1)"
+            >+</button>
+          </div>
+        </div>
+
+        <div class="h-px" style="background-color: var(--color-border)" />
+
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1">
+            <div class="text-[14px] font-medium text-foreground">Μέγιστες εφημερίες</div>
+            <div class="text-[12px] text-muted mt-0.5">Ανά γιατρό / μήνα</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              class="w-[36px] h-[36px] rounded-[6px] flex items-center justify-center
+                     font-semibold text-foreground border border-border hover:bg-background active:scale-95"
+              style="background-color: var(--color-bg)"
+              @click="constraints.maxShifts = Math.max(3, constraints.maxShifts - 1)"
+            >−</button>
+            <span class="w-[28px] text-center text-[15px] font-semibold text-foreground">{{ constraints.maxShifts }}</span>
+            <button
+              class="w-[36px] h-[36px] rounded-[6px] flex items-center justify-center
+                     font-semibold text-foreground border border-border hover:bg-background active:scale-95"
+              style="background-color: var(--color-bg)"
+              @click="constraints.maxShifts = Math.min(15, constraints.maxShifts + 1)"
+            >+</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Export/Import -->
+    <section>
+      <h2 class="section-title mb-3 flex items-center gap-2">
+        <Package class="w-[16px] h-[16px] text-muted" />
+        Δεδομένα
+      </h2>
+      <div class="card p-4 space-y-3">
+        <p class="text-[12px] text-muted">Εξαγωγή/εισαγωγή γιατρών, επιθυμιών και κανόνων.</p>
+        <div class="flex gap-2">
+          <button
+            class="flex-1 flex items-center justify-center gap-2 py-3 rounded-[8px] border border-border
+                   text-[14px] text-foreground font-medium hover:bg-background active:scale-[0.98] transition-all min-h-[44px]"
+            @click="exportData"
+          >
+            <Download class="w-[16px] h-[16px] text-muted" />
+            Εξαγωγή
+          </button>
+          <button
+            class="flex-1 flex items-center justify-center gap-2 py-3 rounded-[8px] border border-border
+                   text-[14px] text-foreground font-medium hover:bg-background active:scale-[0.98] transition-all min-h-[44px]"
+            @click="handleImport"
+          >
+            <Upload class="w-[16px] h-[16px] text-muted" />
+            Εισαγωγή
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Reset -->
+    <section>
+      <div class="card p-4">
+        <div v-if="!showConfirmReset">
+          <button
+            class="w-full flex items-center justify-center gap-2 py-3 rounded-[8px] border
+                   text-[14px] text-danger font-medium hover:bg-danger/5 active:scale-[0.98] transition-all min-h-[44px]"
+            style="border-color: var(--color-danger)"
+            @click="showConfirmReset = true"
+          >
+            <RotateCcw class="w-[16px] h-[16px]" />
+            Επαναφορά όλων
+          </button>
+        </div>
+        <div v-else class="space-y-3">
+          <p class="text-[14px] text-danger font-medium text-center">
+            Θα διαγραφούν όλα τα δεδομένα. Σίγουρα;
+          </p>
+          <div class="flex gap-2">
+            <button class="btn-secondary flex-1 text-[14px]" @click="showConfirmReset = false">Ακύρωση</button>
+            <button
+              class="flex-1 text-white font-semibold rounded-[8px] px-5 py-3 text-[14px]
+                     hover:opacity-90 active:scale-[0.98] transition-all"
+              style="background-color: var(--color-danger)"
+              @click="confirmReset"
+            >Επιβεβαίωση</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</template>

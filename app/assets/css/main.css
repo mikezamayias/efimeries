@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design System: Linear Gov
+ * Spacing: 4px base grid (4, 8, 12, 16, 20, 24, 32, 40, 48)
+ * Radius: 6px (small), 8px (medium), 12px (large)
+ * Font sizes: 11, 12, 13, 14, 15, 16, 20, 24
+ * Touch targets: min 44px
+ * Contrast: WCAG AA minimum (4.5:1 text, 3:1 large text)
+ */
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --color-bg: #F5F5F7;
+    --color-surface: #FFFFFF;
+    --color-text: #1D1D1F;
+    --color-text-secondary: #86868B;
+    --color-accent: #0071E3;
+    --color-accent-soft: #F0F5FF;
+    --color-border: #D2D2D7;
+    --color-weekend-bg: #FFF8F0;
+    --color-weekend-text: #A0522D;
+    --color-danger: #FF3B30;
+    --color-positive: #34C759;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --color-bg: #000000;
+    --color-surface: #1C1C1E;
+    --color-text: #F5F5F7;
+    --color-text-secondary: #98989D;
+    --color-accent: #0A84FF;
+    --color-accent-soft: rgba(10,132,255,0.1);
+    --color-border: #38383A;
+    --color-weekend-bg: rgba(160,82,45,0.1);
+    --color-weekend-text: #E8A870;
+    --color-danger: #FF453A;
+    --color-positive: #30D158;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  html {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-text-secondary); }
+
+  /* Form elements inherit colors in dark mode */
+  select, input {
+    color: var(--color-text);
+    background-color: var(--color-bg);
+  }
+  option {
+    color: var(--color-text);
+    background-color: var(--color-surface);
+  }
+}
+
+@layer components {
+  .btn-primary {
+    background-color: var(--color-accent);
+    @apply text-white font-semibold rounded-[8px] px-5 py-3
+           hover:opacity-90 active:scale-[0.98] transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    background-color: var(--color-surface);
+    @apply text-foreground font-medium rounded-[8px] px-4 py-2.5
+           border border-border hover:opacity-80 active:scale-[0.98]
+           transition-all duration-150;
+  }
+
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    @apply rounded-[12px];
+  }
+
+  .chip {
+    @apply inline-flex items-center px-2 py-0.5 rounded-[4px]
+           text-[11px] font-semibold whitespace-nowrap tracking-wide;
+  }
+
+  .section-title {
+    @apply text-[15px] font-semibold text-foreground tracking-tight;
+  }
+
+  .safe-bottom {
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}

@@ -1,0 +1,76 @@
+<script setup lang="ts">
+import { Star } from 'lucide-vue-next'
+import { useAppState } from '~/composables/useAppState'
+import { DOCTOR_COLORS, DAY_NAMES, getDayOfWeek, getDayOfWeekMondayBased } from '~/utils/types'
+
+const { doctors, month, year, marks, schedule, daysInMonth } = useAppState()
+
+function getDoctorForDay(dayIndex: number) {
+  if (!schedule.value) return null
+  const id = schedule.value[dayIndex]
+  if (id == null) return null
+  return doctors.value.find(d => d.id === id) ?? null
+}
+
+function isWeekend(dayIndex: number): boolean {
+  const dow = getDayOfWeek(year.value, month.value, dayIndex + 1)
+  return dow === 0 || dow === 6
+}
+
+function dayName(dayIndex: number): string {
+  const dow = getDayOfWeekMondayBased(year.value, month.value, dayIndex + 1)
+  return DAY_NAMES[dow] ?? ''
+}
+
+function isWantFulfilled(dayIndex: number): boolean {
+  const docId = schedule.value?.[dayIndex]
+  if (docId == null) return false
+  return marks.value[docId]?.[dayIndex] === 'want'
+}
+</script>
+
+<template>
+  <div class="space-y-1">
+    <div v-if="!schedule" class="card p-8 text-center">
+      <p class="text-muted text-[14px]">Δεν υπάρχει πρόγραμμα. Δημιουργήστε πρώτα από το Ημερολόγιο.</p>
+    </div>
+
+    <template v-else>
+      <div
+        v-for="i in daysInMonth"
+        :key="i"
+        class="flex items-center gap-3 px-4 py-3 rounded-[8px] transition-colors"
+        :style="{ backgroundColor: isWeekend(i - 1) ? 'var(--color-weekend-bg)' : 'var(--color-surface)' }"
+      >
+        <div class="w-[48px] flex-shrink-0">
+          <div
+            class="text-[18px] font-semibold leading-none"
+            :class="isWeekend(i - 1) ? 'text-weekend-text' : 'text-foreground'"
+          >
+            {{ i }}
+          </div>
+          <div class="text-[11px] font-medium mt-0.5"
+               :style="{ color: isWeekend(i - 1) ? 'var(--color-weekend-text)' : 'var(--color-text-secondary)' }">
+            {{ dayName(i - 1) }}
+          </div>
+        </div>
+
+        <div class="flex-1">
+          <div
+            v-if="getDoctorForDay(i - 1)"
+            class="chip inline-flex"
+            :style="{
+              backgroundColor: DOCTOR_COLORS[getDoctorForDay(i - 1)!.colorIndex] + '1A',
+              color: DOCTOR_COLORS[getDoctorForDay(i - 1)!.colorIndex],
+            }"
+          >
+            {{ getDoctorForDay(i - 1)!.name }}
+          </div>
+          <span v-else class="text-[13px] text-muted">—</span>
+        </div>
+
+        <Star v-if="isWantFulfilled(i - 1)" class="w-[14px] h-[14px] text-positive flex-shrink-0" />
+      </div>
+    </template>
+  </div>
+</template>

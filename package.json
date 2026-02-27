@@ -1,0 +1,29 @@
+{
+  "name": "efimeries",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "jspdf": "^4.2.0",
+    "lucide-vue-next": "^0.575.0",
+    "nuxt": "^4.3.1",
+    "radix-vue": "^1.9.17",
+    "tailwind-merge": "^3.5.0",
+    "vue": "^3.5.28",
+    "vue-router": "^4.6.4",
+    "xlsx-js-style": "^1.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.11",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}
