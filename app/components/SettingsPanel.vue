@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart } from 'lucide-vue-next'
+import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
-import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS } from '~/utils/types'
+import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS, MONTH_NAMES } from '~/utils/types'
 import type { DoctorType } from '~/utils/types'
 
 const {
   doctors, marks, constraints, month, year,
   addDoctor, removeDoctor, updateDoctor, resetAll, showToast,
   importData, autoHolidays, toggleAutoHolidays,
+  customHolidays, addCustomHoliday, removeCustomHoliday,
 } = useAppState()
 
 const haptics = useHaptics()
@@ -19,6 +20,29 @@ const newType = ref<DoctorType>('eidikevomenos')
 const showConfirmReset = ref(false)
 const editingId = ref<number | null>(null)
 const editName = ref('')
+
+// Custom holiday form
+const newHolidayName = ref('')
+const newHolidayMonth = ref(0)
+const newHolidayDay = ref(1)
+
+function handleAddCustomHoliday() {
+  const name = newHolidayName.value.trim()
+  if (!name) return
+  addCustomHoliday(name, newHolidayMonth.value, newHolidayDay.value)
+  newHolidayName.value = ''
+  haptics.medium()
+  showToast('Η αργία προστέθηκε')
+}
+
+function getDaysInMonthForPicker(m: number): number {
+  // Use a non-leap year for consistent max days
+  return new Date(2024, m + 1, 0).getDate()
+}
+
+function formatHolidayDate(m: number, d: number): string {
+  return `${d} ${MONTH_NAMES[m]}`
+}
 
 function handleAdd() {
   const name = newName.value.trim()
@@ -237,6 +261,79 @@ function handleImport() {
               class="absolute top-[2px] w-[27px] h-[27px] rounded-full bg-white shadow transition-transform duration-200"
               :style="{ transform: autoHolidays ? 'translateX(22px)' : 'translateX(2px)' }"
             />
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Holidays -->
+    <section>
+      <h2 class="section-title mb-3 flex items-center gap-2">
+        <MapPin class="w-[16px] h-[16px] text-muted" />
+        Τοπικές Αργίες
+      </h2>
+
+      <!-- Existing custom holidays list -->
+      <div v-if="customHolidays.length > 0" class="space-y-2 mb-3">
+        <div
+          v-for="ch in customHolidays"
+          :key="ch.id"
+          class="card flex items-center gap-3 px-4 py-3"
+        >
+          <div class="flex-1 min-w-0">
+            <div class="text-[14px] font-medium text-foreground">{{ ch.name }}</div>
+            <div class="text-[12px] text-muted mt-0.5">{{ formatHolidayDate(ch.month, ch.day) }}</div>
+          </div>
+          <button
+            class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px]
+                   text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+            @click="removeCustomHoliday(ch.id); haptics.heavy()"
+          >
+            <Trash2 class="w-[16px] h-[16px]" />
+          </button>
+        </div>
+      </div>
+
+      <div v-else class="card p-4 mb-3">
+        <p class="text-[12px] text-muted text-center">Δεν υπάρχουν τοπικές αργίες.</p>
+      </div>
+
+      <!-- Add custom holiday form -->
+      <div class="card p-4">
+        <div class="flex flex-col gap-2">
+          <input
+            v-model="newHolidayName"
+            placeholder="Όνομα αργίας..."
+            class="w-full rounded-[8px] px-3 py-2.5 text-[14px] text-foreground border border-border
+                   focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent
+                   placeholder:text-muted/50"
+            style="background-color: var(--color-bg)"
+            @keyup.enter="handleAddCustomHoliday"
+          >
+          <div class="flex gap-2">
+            <select
+              v-model.number="newHolidayMonth"
+              class="flex-1 rounded-[8px] px-3 py-2.5 text-[13px] border border-border
+                     focus:outline-none focus:ring-2 focus:ring-accent/30"
+              style="background-color: var(--color-bg); color: var(--color-text)"
+            >
+              <option v-for="(mName, mi) in MONTH_NAMES" :key="mi" :value="mi">{{ mName }}</option>
+            </select>
+            <select
+              v-model.number="newHolidayDay"
+              class="w-[80px] rounded-[8px] px-3 py-2.5 text-[13px] border border-border
+                     focus:outline-none focus:ring-2 focus:ring-accent/30"
+              style="background-color: var(--color-bg); color: var(--color-text)"
+            >
+              <option v-for="d in getDaysInMonthForPicker(newHolidayMonth)" :key="d" :value="d">{{ d }}</option>
+            </select>
+          </div>
+          <button
+            class="btn-primary w-full flex items-center justify-center gap-2 min-h-[44px] text-[14px]"
+            @click="handleAddCustomHoliday"
+          >
+            <Plus class="w-[16px] h-[16px]" />
+            Προσθήκη Αργίας
           </button>
         </div>
       </div>

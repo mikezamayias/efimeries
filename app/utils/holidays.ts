@@ -1,5 +1,7 @@
 // Greek public holidays: fixed + Orthodox Easter-based (Meeus algorithm)
 
+import type { CustomHoliday } from '~/utils/types'
+
 export interface Holiday {
   day: number
   name: string
@@ -90,6 +92,28 @@ export function getHolidayMap(year: number, month: number): Record<number, strin
   const map: Record<number, string> = {}
   for (const h of getHolidaysForMonth(year, month)) {
     map[h.day - 1] = h.name // dayIndex is 0-based
+  }
+  return map
+}
+
+/**
+ * Merge auto-holidays with custom recurring holidays for a given month.
+ * Custom holidays that fall in the month are added to the map (auto-holidays take precedence on collision).
+ */
+export function mergeCustomHolidays(
+  year: number,
+  month: number,
+  customHolidays: CustomHoliday[],
+): Record<number, string> {
+  const map = getHolidayMap(year, month)
+  for (const ch of customHolidays) {
+    if (ch.month === month) {
+      const dayIndex = ch.day - 1
+      // Don't override built-in holidays
+      if (!(dayIndex in map)) {
+        map[dayIndex] = ch.name
+      }
+    }
   }
   return map
 }

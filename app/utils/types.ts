@@ -1,3 +1,10 @@
+export interface CustomHoliday {
+  id: number
+  name: string
+  month: number  // 0-indexed
+  day: number
+}
+
 export type DoctorType = 'eidikevomenos' | 'agrotikos'
 
 export interface Doctor {

@@ -1,5 +1,5 @@
 import { ref, watch, computed } from 'vue'
-import type { Doctor, DoctorType, Mark, MarksMap, Constraints, ScheduleResult } from '~/utils/types'
+import type { Doctor, DoctorType, Mark, MarksMap, Constraints, ScheduleResult, CustomHoliday } from '~/utils/types'
 import {
   DOCTOR_COLORS,
   DEFAULT_CONSTRAINTS,
@@ -9,11 +9,12 @@ import {
 import { generateSchedule, recalculateStats } from '~/utils/scheduler'
 import { useHistory } from '~/composables/useHistory'
 import { useScheduleStore } from '~/composables/useScheduleStore'
-import { getHolidayMap } from '~/utils/holidays'
+import { getHolidayMap, mergeCustomHolidays } from '~/utils/holidays'
 import type { HistorySnapshot } from '~/composables/useHistory'
 
 const STORAGE_KEY = 'efimeries-state'
 const HOLIDAYS_ENABLED_KEY = 'efimeries-auto-holidays'
+const CUSTOM_HOLIDAYS_KEY = 'efimeries-custom-holidays'
 
 // Singleton state
 const doctors = ref<Doctor[]>(createDefaultDoctors())
@@ -27,6 +28,8 @@ const stats = ref<Omit<ScheduleResult, 'schedule'> | null>(null)
 const toastMessage = ref<string | null>(null)
 const isLoaded = ref(false)
 const autoHolidays = ref(true)
+const customHolidays = ref<CustomHoliday[]>([])
+let nextCustomHolidayId = 1
 
 // Flag to suppress history recording during undo/redo restore
 let isRestoring = false
@@ -79,6 +82,19 @@ function loadState() {
       autoHolidays.value = holidaysPref !== 'false'
     }
 
+    // Load custom holidays
+    const customHolidaysRaw = localStorage.getItem(CUSTOM_HOLIDAYS_KEY)
+    if (customHolidaysRaw) {
+      try {
+        const parsed = JSON.parse(customHolidaysRaw) as CustomHoliday[]
+        customHolidays.value = parsed
+        if (parsed.length > 0) {
+          nextCustomHolidayId = Math.max(...parsed.map(h => h.id)) + 1
+        }
+      }
+      catch { /* ignore corrupt data */ }
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
       isLoaded.value = true
@@ -107,9 +123,21 @@ function loadState() {
 
 /** Apply auto-holiday marks for the current month (without overriding manual marks) */
 function applyAutoHolidays() {
-  if (!autoHolidays.value) return
+  if (!autoHolidays.value && customHolidays.value.length === 0) return
 
-  const holidayMap = getHolidayMap(year.value, month.value)
+  // Build combined holiday map: auto (if enabled) + custom
+  let holidayMap: Record<number, string>
+  if (autoHolidays.value) {
+    holidayMap = mergeCustomHolidays(year.value, month.value, customHolidays.value)
+  } else {
+    // Only custom holidays when auto-holidays are off
+    holidayMap = {}
+    for (const ch of customHolidays.value) {
+      if (ch.month === month.value) {
+        holidayMap[ch.day - 1] = ch.name
+      }
+    }
+  }
   if (Object.keys(holidayMap).length === 0) return
 
   const newMarks = { ...marks.value }
@@ -175,8 +203,20 @@ export function useAppState() {
   const scheduleStore = useScheduleStore()
   const daysInMonth = computed(() => getDaysInMonth(year.value, month.value))
 
-  // Computed: holiday map for current month
-  const holidayMap = computed(() => getHolidayMap(year.value, month.value))
+  // Computed: holiday map for current month (auto + custom)
+  const holidayMap = computed(() => {
+    if (autoHolidays.value) {
+      return mergeCustomHolidays(year.value, month.value, customHolidays.value)
+    }
+    // Only custom holidays when auto is off
+    const map: Record<number, string> = {}
+    for (const ch of customHolidays.value) {
+      if (ch.month === month.value) {
+        map[ch.day - 1] = ch.name
+      }
+    }
+    return map
+  })
 
   // Auto-save on changes
   watch([doctors, month, year, marks, constraints, schedule], () => {
@@ -381,17 +421,56 @@ export function useAppState() {
     showToast('Επανάληψη')
   }
 
+  function saveCustomHolidays() {
+    localStorage.setItem(CUSTOM_HOLIDAYS_KEY, JSON.stringify(customHolidays.value))
+  }
+
+  function addCustomHoliday(name: string, m: number, day: number) {
+    customHolidays.value = [
+      ...customHolidays.value,
+      { id: nextCustomHolidayId++, name, month: m, day },
+    ]
+    saveCustomHolidays()
+    applyAutoHolidays()
+  }
+
+  function removeCustomHoliday(id: number) {
+    const removed = customHolidays.value.find(h => h.id === id)
+    customHolidays.value = customHolidays.value.filter(h => h.id !== id)
+    saveCustomHolidays()
+
+    // Remove holiday marks for the removed custom holiday's day (if no other holiday on that day)
+    if (removed && removed.month === month.value) {
+      const dayIndex = removed.day - 1
+      const stillHoliday = holidayMap.value[dayIndex] !== undefined
+      if (!stillHoliday) {
+        const newMarks = { ...marks.value }
+        for (const doc of doctors.value) {
+          if (newMarks[doc.id]?.[dayIndex] === 'holiday') {
+            delete newMarks[doc.id]![dayIndex]
+          }
+        }
+        marks.value = newMarks
+      }
+    }
+  }
+
   function toggleAutoHolidays() {
     autoHolidays.value = !autoHolidays.value
     if (!autoHolidays.value) {
-      // Remove auto-applied holiday marks
-      const holidayDays = getHolidayMap(year.value, month.value)
+      // Remove auto-applied holiday marks (but keep custom holiday marks)
+      const autoOnlyDays = getHolidayMap(year.value, month.value)
+      // Build set of days that are custom holidays — these should stay
+      const customDays = new Set<number>()
+      for (const ch of customHolidays.value) {
+        if (ch.month === month.value) customDays.add(ch.day - 1)
+      }
       const newMarks = { ...marks.value }
       for (const doc of doctors.value) {
         if (!newMarks[doc.id]) continue
-        for (const dayIndexStr in holidayDays) {
+        for (const dayIndexStr in autoOnlyDays) {
           const dayIndex = parseInt(dayIndexStr, 10)
-          if (newMarks[doc.id]![dayIndex] === 'holiday') {
+          if (newMarks[doc.id]![dayIndex] === 'holiday' && !customDays.has(dayIndex)) {
             delete newMarks[doc.id]![dayIndex]
           }
         }
@@ -416,6 +495,7 @@ export function useAppState() {
     toastMessage,
     isLoaded,
     autoHolidays,
+    customHolidays,
     holidayMap,
     generate,
     assignDay,
@@ -432,6 +512,8 @@ export function useAppState() {
     undo,
     redo,
     toggleAutoHolidays,
+    addCustomHoliday,
+    removeCustomHoliday,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
   }
