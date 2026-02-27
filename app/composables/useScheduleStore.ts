@@ -1,4 +1,4 @@
-import type { MarksMap, Constraints, Doctor } from '~/utils/types'
+import type { MarksMap, Constraints, Doctor, ShiftType } from '~/utils/types'
 import { DEFAULT_CONSTRAINTS } from '~/utils/types'
 
 const STORE_PREFIX = 'efimeries-month-'
@@ -9,6 +9,7 @@ export interface MonthScheduleData {
   schedule: (number | null)[] | null
   constraints: Constraints
   nextId: number
+  shiftType?: ShiftType
 }
 
 function storageKey(year: number, month: number): string {

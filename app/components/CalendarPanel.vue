@@ -20,7 +20,7 @@ const props = withDefaults(defineProps<{
 })
 
 const {
-  doctors, month, year, marks, schedule, stats, daysInMonth,
+  doctors, month, year, marks, schedule, stats, daysInMonth, shiftType,
   generate, assignDay, swapDays, holidayMap, showToast,
 } = useAppState()
 
@@ -164,13 +164,13 @@ function doGenerate() {
 
 async function doExportExcel() {
   if (!schedule.value) return
-  await exportToExcel(schedule.value, doctors.value, year.value, month.value, marks.value)
+  await exportToExcel(schedule.value, doctors.value, year.value, month.value, marks.value, shiftType.value)
   showExports.value = false
 }
 
 async function doExportPDF() {
   if (!schedule.value) return
-  await exportToPDF(schedule.value, doctors.value, year.value, month.value, marks.value)
+  await exportToPDF(schedule.value, doctors.value, year.value, month.value, marks.value, shiftType.value)
   showExports.value = false
 }
 
@@ -339,6 +339,13 @@ function isCellRevealed(dayIndex: number): boolean {
                 }"
               >
                 {{ getDoctorForDay(cell.index)?.name?.slice(0, 5) }}
+              </div>
+              <div
+                v-if="getDoctorForDay(cell.index)?.specialization && isCellRevealed(cell.index)"
+                class="text-[7px] leading-tight font-medium truncate max-w-full px-[1px] text-center"
+                :style="{ color: getDoctorColor(cell.index) }"
+              >
+                {{ getDoctorForDay(cell.index)!.specialization }}
               </div>
             </Transition>
             <div v-if="!getDoctorForDay(cell.index) && schedule && isCellRevealed(cell.index)" class="text-[10px] text-muted">—</div>

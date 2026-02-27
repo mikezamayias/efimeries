@@ -1,8 +1,9 @@
 import { ref, watch, computed } from 'vue'
-import type { Doctor, DoctorType, Mark, MarksMap, Constraints, ScheduleResult, CustomHoliday } from '~/utils/types'
+import type { Doctor, DoctorType, Mark, MarksMap, Constraints, ScheduleResult, CustomHoliday, ShiftType } from '~/utils/types'
 import {
   DOCTOR_COLORS,
   DEFAULT_CONSTRAINTS,
+  MONTH_NAMES,
   getDaysInMonth,
   createDefaultDoctors,
 } from '~/utils/types'
@@ -25,6 +26,7 @@ const constraints = ref<Constraints>({ ...DEFAULT_CONSTRAINTS })
 const nextId = ref(6)
 const schedule = ref<(number | null)[] | null>(null)
 const stats = ref<Omit<ScheduleResult, 'schedule'> | null>(null)
+const shiftType = ref<ShiftType>('24ωρη')
 const toastMessage = ref<string | null>(null)
 const isLoaded = ref(false)
 const autoHolidays = ref(true)
@@ -59,6 +61,7 @@ function saveState() {
         constraints: constraints.value,
         nextId: nextId.value,
         schedule: schedule.value,
+        shiftType: shiftType.value,
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
 
@@ -70,6 +73,7 @@ function saveState() {
         schedule: schedule.value,
         constraints: constraints.value,
         nextId: nextId.value,
+        shiftType: shiftType.value,
       })
     }
     catch {
@@ -112,6 +116,7 @@ function loadState() {
     if (data.marks) marks.value = data.marks
     if (data.constraints) constraints.value = { ...DEFAULT_CONSTRAINTS, ...data.constraints }
     if (data.nextId) nextId.value = data.nextId
+    if (data.shiftType) shiftType.value = data.shiftType
     if (data.schedule) {
       schedule.value = data.schedule
       stats.value = recalculateStats(data.schedule, doctors.value, data.year ?? year.value, data.month ?? month.value, data.marks ?? marks.value)
@@ -223,7 +228,7 @@ export function useAppState() {
   })
 
   // Auto-save on changes
-  watch([doctors, month, year, marks, constraints, schedule], () => {
+  watch([doctors, month, year, marks, constraints, schedule, shiftType], () => {
     if (isLoaded.value) saveState()
   }, { deep: true })
 
@@ -342,7 +347,7 @@ export function useAppState() {
     })
   }
 
-  function updateDoctor(id: number, updates: Partial<Pick<Doctor, 'name' | 'type'>>) {
+  function updateDoctor(id: number, updates: Partial<Pick<Doctor, 'name' | 'type' | 'specialization'>>) {
     recordAction(() => {
       doctors.value = doctors.value.map(d =>
         d.id === id ? { ...d, ...updates } : d,
@@ -358,6 +363,7 @@ export function useAppState() {
       schedule: schedule.value,
       constraints: constraints.value,
       nextId: nextId.value,
+      shiftType: shiftType.value,
     })
 
     // Month navigation is a context switch — clear history
@@ -375,6 +381,7 @@ export function useAppState() {
       schedule.value = restored.schedule
       constraints.value = restored.constraints
       nextId.value = restored.nextId
+      shiftType.value = restored.shiftType ?? '24ωρη'
       if (restored.schedule) {
         stats.value = recalculateStats(restored.schedule, doctors.value, y, m, marks.value)
       }
@@ -387,6 +394,7 @@ export function useAppState() {
       schedule.value = null
       stats.value = null
       marks.value = {}
+      shiftType.value = '24ωρη'
     }
 
     // Apply auto-holidays for new month
@@ -401,6 +409,7 @@ export function useAppState() {
       schedule.value = null
       stats.value = null
       nextId.value = 6
+      shiftType.value = '24ωρη'
     })
     applyAutoHolidays()
     showToast('Επαναφορά ολοκληρώθηκε')
@@ -491,6 +500,20 @@ export function useAppState() {
     }
   }
 
+  /** Copy doctors + marks (NOT schedule) from a saved month */
+  function copyMarksFromMonth(srcYear: number, srcMonth: number) {
+    const data = scheduleStore.loadMonth(srcYear, srcMonth)
+    if (!data) return
+    recordAction(() => {
+      doctors.value = JSON.parse(JSON.stringify(data.doctors))
+      marks.value = JSON.parse(JSON.stringify(data.marks))
+      nextId.value = data.nextId
+      // Don't copy schedule — keep current (or null)
+    })
+    applyAutoHolidays()
+    showToast(`Αντιγράφηκαν επιθυμίες από ${MONTH_NAMES[srcMonth]} ${srcYear}`)
+  }
+
   function toggleAutoHolidays() {
     autoHolidays.value = !autoHolidays.value
     if (!autoHolidays.value) {
@@ -527,6 +550,7 @@ export function useAppState() {
     constraints,
     schedule,
     stats,
+    shiftType,
     daysInMonth,
     toastMessage,
     isLoaded,
@@ -553,6 +577,7 @@ export function useAppState() {
     toggleAutoHolidays,
     addCustomHoliday,
     removeCustomHoliday,
+    copyMarksFromMonth,
     canUndo: history.canUndo,
     canRedo: history.canRedo,
   }

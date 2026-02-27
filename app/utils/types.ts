@@ -12,7 +12,26 @@ export interface Doctor {
   name: string
   type: DoctorType
   colorIndex: number // 0-9, maps to DOCTOR_COLORS
+  specialization?: string // e.g. "ΜΕΘ", "Χειρουργείο", "Παθολογικό"
 }
+
+export const SPECIALIZATION_OPTIONS = [
+  'Γενική',
+  'ΜΕΘ',
+  'Χειρουργείο',
+  'Παθολογικό',
+  'Ορθοπεδική',
+  'Καρδιολογική',
+] as const
+
+export type ShiftType = '24ωρη' | 'Πρωινή' | 'Απογευματινή' | 'Νυχτερινή'
+
+export const SHIFT_TYPES: { value: ShiftType; label: string; hours: string }[] = [
+  { value: '24ωρη', label: '24ωρη', hours: '08:00 — 08:00' },
+  { value: 'Πρωινή', label: 'Πρωινή', hours: '08:00 — 16:00' },
+  { value: 'Απογευματινή', label: 'Απογευματινή', hours: '16:00 — 00:00' },
+  { value: 'Νυχτερινή', label: 'Νυχτερινή', hours: '00:00 — 08:00' },
+]
 
 export type Mark = 'block' | 'want' | 'holiday' | 'leave' | 'sick' | undefined
 
@@ -45,6 +64,7 @@ export interface AppState {
   constraints: Constraints
   nextId: number
   schedule: (number | null)[] | null
+  shiftType?: ShiftType // default "24ωρη"
 }
 
 // Apple HIG-inspired colors. Rendered as text + 10% opacity bg in chips.

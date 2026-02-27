@@ -6,6 +6,7 @@ import {
   BarChart3,
   CalendarRange,
   Bookmark,
+  ArrowLeftRight,
   Settings,
 } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
@@ -56,13 +57,14 @@ const allTabs = [
   { label: 'Στατιστικά', icon: BarChart3, dataTab: 'stats' },
   { label: 'Τρίμηνο', icon: CalendarRange, dataTab: 'quarter' },
   { label: 'Επιθυμίες', icon: Bookmark, dataTab: 'marks' },
+  { label: 'Ανταλλαγές', icon: ArrowLeftRight, dataTab: 'swaps' },
   { label: 'Ρυθμίσεις', icon: Settings, dataTab: 'settings' },
 ]
 
 const tabs = computed(() => {
   if (isReadOnly.value) {
-    // Hide Marks (index 4) and Settings (index 5) in read-only
-    return allTabs.filter((_, i) => i !== 4 && i !== 5)
+    // Hide Marks (index 4), Swaps (index 5), and Settings (index 6) in read-only
+    return allTabs.filter((_, i) => i !== 4 && i !== 5 && i !== 6)
   }
   return allTabs
 })
@@ -160,7 +162,8 @@ onUnmounted(() => {
               <StatsPanel v-else-if="activeTab === 2" />
               <QuarterPanel v-else-if="activeTab === 3" />
               <MarksPanel v-else-if="activeTab === 4" />
-              <SettingsPanel v-else-if="activeTab === 5" @restart-onboarding="restartOnboarding" />
+              <SwapPanel v-else-if="activeTab === 5" />
+              <SettingsPanel v-else-if="activeTab === 6" @restart-onboarding="restartOnboarding" />
             </template>
           </div>
         </Transition>

@@ -1,5 +1,15 @@
-import type { Doctor, MarksMap } from './types'
-import { getDaysInMonth, getDayOfWeek, getFirstDayOfWeek, MONTH_NAMES, DAY_NAMES, DOCTOR_COLORS } from './types'
+import type { Doctor, MarksMap, ShiftType } from './types'
+import { getDaysInMonth, getDayOfWeek, getFirstDayOfWeek, MONTH_NAMES, DAY_NAMES, DOCTOR_COLORS, SHIFT_TYPES } from './types'
+
+function getShiftHours(shiftType?: ShiftType): string {
+  const st = SHIFT_TYPES.find(s => s.value === (shiftType ?? '24ωρη'))
+  return st?.hours ?? '08:00 — 08:00'
+}
+
+function getShiftLabel(shiftType?: ShiftType): string {
+  const st = SHIFT_TYPES.find(s => s.value === (shiftType ?? '24ωρη'))
+  return st?.label ?? '24ωρη'
+}
 
 function getDoctorName(doctorId: number | null, doctors: Doctor[]): string {
   if (doctorId == null) return ''
@@ -35,6 +45,7 @@ export async function exportToExcel(
   year: number,
   month: number,
   marks: MarksMap,
+  shiftType?: ShiftType,
 ) {
   const XLSX = (await import('xlsx-js-style')).default
   const daysInMonth = getDaysInMonth(year, month)
@@ -53,8 +64,11 @@ export async function exportToExcel(
   // ── Sheet 1: Calendar Grid (like the handwritten board) ──
   const DAYS_HEADER = ['ΔΕΥΤΕΡΑ', 'ΤΡΙΤΗ', 'ΤΕΤΑΡΤΗ', 'ΠΕΜΠΤΗ', 'ΠΑΡΑΣΚΕΥΗ', 'ΣΑΒΒΑΤΟ', 'ΚΥΡΙΑΚΗ']
 
+  const shiftLabel = getShiftLabel(shiftType)
+  const shiftHours = getShiftHours(shiftType)
+
   const calData: any[][] = []
-  calData.push([{ v: `ΕΦΗΜΕΡΙΕΣ — ${MONTH_NAMES[month]?.toUpperCase()} ${year}`, s: titleStyle }])
+  calData.push([{ v: `ΕΦΗΜΕΡΙΕΣ — ${MONTH_NAMES[month]?.toUpperCase()} ${year} (${shiftLabel} ${shiftHours})`, s: titleStyle }])
   calData.push([]) // blank row
   calData.push(DAYS_HEADER.map(h => ({ v: h, s: headerStyle })))
 
@@ -155,7 +169,7 @@ export async function exportToExcel(
       { v: DAY_NAMES[mondayIdx] ?? '', s: rowStyle },
       { v: (isHol ? '🎌 ' : '') + (getDoctorName(docId, doctors) || '—'), s: nameStyle },
       { v: doc ? (doc.type === 'eidikevomenos' ? 'Ειδικευόμενος' : 'Αγροτικός') : '', s: rowStyle },
-      { v: '08:00 — 08:00', s: rowStyle },
+      { v: shiftHours, s: rowStyle },
     ])
   }
 
@@ -208,7 +222,7 @@ export async function exportToExcel(
   const progData: any[][] = []
 
   // Title
-  progData.push([{ v: `ΠΡΟΓΡΑΜΜΑ ${MONTH_NAMES[month]?.toUpperCase()} ${year}`, s: titleStyle }])
+  progData.push([{ v: `ΠΡΟΓΡΑΜΜΑ ${MONTH_NAMES[month]?.toUpperCase()} ${year} — ${shiftLabel} (${shiftHours})`, s: titleStyle }])
   progData.push([]) // blank
 
   // Header: Date | Εφημερεύων | one column per doctor
@@ -312,6 +326,7 @@ export async function exportToPDF(
   year: number,
   month: number,
   marks: MarksMap,
+  shiftType?: ShiftType,
 ) {
   const { jsPDF } = await import('jspdf')
   const daysInMonth = getDaysInMonth(year, month)
@@ -329,13 +344,22 @@ export async function exportToPDF(
   doc.addFileToVFS('NotoSans-Bold.ttf', boldBase64)
   doc.addFont('NotoSans-Bold.ttf', 'NotoSans', 'bold')
 
+  const shiftLabel = getShiftLabel(shiftType)
+  const shiftHoursStr = getShiftHours(shiftType)
+
   // Title
   doc.setFont('NotoSans', 'bold')
   doc.setFontSize(18)
   doc.text(`Εφημερίες — ${MONTH_NAMES[month]} ${year}`, 15, 20)
 
+  // Shift type subtitle
+  doc.setFontSize(11)
+  doc.setTextColor(120, 120, 120)
+  doc.text(`${shiftLabel} (${shiftHoursStr})`, 15, 27)
+  doc.setTextColor(0, 0, 0)
+
   doc.setFontSize(10)
-  let y = 35
+  let y = 38
 
   // Header row
   doc.setFont('NotoSans', 'bold')

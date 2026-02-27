@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin, History, HelpCircle } from 'lucide-vue-next'
+import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin, History, HelpCircle, Clock, Copy, Stethoscope } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
 import { useScheduleStore } from '~/composables/useScheduleStore'
-import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS, MONTH_NAMES } from '~/utils/types'
-import type { DoctorType } from '~/utils/types'
+import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS, MONTH_NAMES, SPECIALIZATION_OPTIONS, SHIFT_TYPES } from '~/utils/types'
+import type { DoctorType, ShiftType } from '~/utils/types'
 
 const {
-  doctors, marks, constraints, month, year,
+  doctors, marks, constraints, month, year, shiftType,
   addDoctor, removeDoctor, updateDoctor, resetAll, showToast,
   importData, autoHolidays, toggleAutoHolidays,
   customHolidays, addCustomHoliday, removeCustomHoliday,
-  setMonth,
+  setMonth, copyMarksFromMonth,
 } = useAppState()
 
 const scheduleStore = useScheduleStore()
@@ -28,6 +28,8 @@ const newType = ref<DoctorType>('eidikevomenos')
 const showConfirmReset = ref(false)
 const editingId = ref<number | null>(null)
 const editName = ref('')
+const customSpecInput = ref<Record<number, string>>({})
+const showCopyMonth = ref(false)
 
 // Custom holiday form
 const newHolidayName = ref('')
@@ -50,6 +52,29 @@ function getDaysInMonthForPicker(m: number): number {
 
 function formatHolidayDate(m: number, d: number): string {
   return `${d} ${MONTH_NAMES[m]}`
+}
+
+function handleSpecChange(docId: number, value: string) {
+  if (value === '__custom__') {
+    // Show custom input — handled by template
+    customSpecInput.value[docId] = ''
+    return
+  }
+  updateDoctor(docId, { specialization: value || undefined })
+}
+
+function applyCustomSpec(docId: number) {
+  const val = customSpecInput.value[docId]?.trim()
+  if (val) {
+    updateDoctor(docId, { specialization: val })
+  }
+  delete customSpecInput.value[docId]
+}
+
+function handleCopyFromMonth(srcYear: number, srcMonth: number) {
+  copyMarksFromMonth(srcYear, srcMonth)
+  showCopyMonth.value = false
+  haptics.medium()
 }
 
 function handleAdd() {
@@ -78,6 +103,17 @@ function confirmReset() {
 
 // History: refresh counter to trigger re-computation
 const historyRefresh = ref(0)
+
+const copyableMonths = computed(() => {
+  // eslint-disable-next-line no-unused-expressions
+  historyRefresh.value
+  return scheduleStore.listSavedMonths()
+    .filter(([y, m]) => !(y === year.value && m === month.value))
+    .sort((a, b) => {
+      if (a[0] !== b[0]) return b[0] - a[0]
+      return b[1] - a[1]
+    })
+})
 
 const savedMonths = computed(() => {
   // eslint-disable-next-line no-unused-expressions
@@ -179,16 +215,48 @@ function handleImport() {
             </template>
           </div>
 
-          <select
-            :value="doc.type"
-            class="text-[12px] rounded-[6px] px-2 py-1.5 text-muted border border-border
-                   focus:outline-none focus:ring-2 focus:ring-accent/30"
-            style="background-color: var(--color-bg); color: var(--color-text-secondary)"
-            @change="updateDoctor(doc.id, { type: ($event.target as HTMLSelectElement).value as DoctorType })"
-          >
-            <option value="eidikevomenos">{{ DOCTOR_TYPE_LABELS.eidikevomenos }}</option>
-            <option value="agrotikos">{{ DOCTOR_TYPE_LABELS.agrotikos }}</option>
-          </select>
+          <div class="flex flex-col gap-1.5 items-end flex-shrink-0">
+            <select
+              :value="doc.type"
+              class="text-[12px] rounded-[6px] px-2 py-1.5 text-muted border border-border
+                     focus:outline-none focus:ring-2 focus:ring-accent/30"
+              style="background-color: var(--color-bg); color: var(--color-text-secondary)"
+              @change="updateDoctor(doc.id, { type: ($event.target as HTMLSelectElement).value as DoctorType })"
+            >
+              <option value="eidikevomenos">{{ DOCTOR_TYPE_LABELS.eidikevomenos }}</option>
+              <option value="agrotikos">{{ DOCTOR_TYPE_LABELS.agrotikos }}</option>
+            </select>
+
+            <template v-if="customSpecInput[doc.id] !== undefined">
+              <div class="flex gap-1">
+                <input
+                  v-model="customSpecInput[doc.id]"
+                  placeholder="Ειδικότητα..."
+                  class="w-[100px] text-[11px] rounded-[6px] px-2 py-1 border border-border
+                         focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  style="background-color: var(--color-bg); color: var(--color-text)"
+                  @keyup.enter="applyCustomSpec(doc.id)"
+                >
+                <button
+                  class="text-[11px] text-accent font-medium px-1"
+                  @click="applyCustomSpec(doc.id)"
+                >OK</button>
+              </div>
+            </template>
+            <template v-else>
+              <select
+                :value="doc.specialization || ''"
+                class="text-[11px] rounded-[6px] px-2 py-1 text-muted border border-border
+                       focus:outline-none focus:ring-2 focus:ring-accent/30"
+                style="background-color: var(--color-bg); color: var(--color-text-secondary)"
+                @change="handleSpecChange(doc.id, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Ειδικότητα...</option>
+                <option v-for="spec in SPECIALIZATION_OPTIONS" :key="spec" :value="spec">{{ spec }}</option>
+                <option value="__custom__">Άλλη...</option>
+              </select>
+            </template>
+          </div>
 
           <button
             class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px]
@@ -282,6 +350,29 @@ function handleImport() {
               @click="constraints.maxShifts = Math.min(15, constraints.maxShifts + 1)"
             >+</button>
           </div>
+        </div>
+
+        <div class="h-px" style="background-color: var(--color-border)" />
+
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex-1">
+            <div class="text-[14px] font-medium text-foreground flex items-center gap-1.5">
+              <Clock class="w-[14px] h-[14px] text-muted" />
+              Τύπος βάρδιας
+            </div>
+            <div class="text-[12px] text-muted mt-0.5">Ωράριο εφημεριών</div>
+          </div>
+          <select
+            :value="shiftType"
+            class="text-[13px] rounded-[8px] px-3 py-2 border border-border
+                   focus:outline-none focus:ring-2 focus:ring-accent/30"
+            style="background-color: var(--color-bg); color: var(--color-text)"
+            @change="shiftType = ($event.target as HTMLSelectElement).value as ShiftType"
+          >
+            <option v-for="st in SHIFT_TYPES" :key="st.value" :value="st.value">
+              {{ st.label }} ({{ st.hours }})
+            </option>
+          </select>
         </div>
       </div>
     </section>
@@ -450,6 +541,42 @@ function handleImport() {
             Εισαγωγή
           </button>
         </div>
+
+        <!-- Copy from previous month -->
+        <div class="h-px" style="background-color: var(--color-border)" />
+        <button
+          class="w-full flex items-center justify-center gap-2 py-3 rounded-[8px] border border-border
+                 text-[14px] text-foreground font-medium hover:bg-background active:scale-[0.98] transition-all min-h-[44px]"
+          @click="showCopyMonth = !showCopyMonth"
+        >
+          <Copy class="w-[16px] h-[16px] text-accent" />
+          Αντιγραφή από προηγούμενο μήνα
+        </button>
+
+        <Transition
+          enter-active-class="transition-all duration-200"
+          enter-from-class="opacity-0 -translate-y-1 max-h-0"
+          enter-to-class="opacity-100 translate-y-0 max-h-[300px]"
+          leave-active-class="transition-all duration-150"
+          leave-from-class="opacity-100 max-h-[300px]"
+          leave-to-class="opacity-0 max-h-0"
+        >
+          <div v-if="showCopyMonth" class="space-y-1 overflow-hidden">
+            <p class="text-[12px] text-muted">Αντιγράφει γιατρούς & επιθυμίες (όχι πρόγραμμα).</p>
+            <div v-if="copyableMonths.length === 0" class="text-[12px] text-muted text-center py-2">
+              Δεν υπάρχουν αποθηκευμένοι μήνες.
+            </div>
+            <button
+              v-for="[y, m] in copyableMonths"
+              :key="`${y}-${m}`"
+              class="w-full flex items-center gap-3 px-4 py-2.5 rounded-[8px] hover:bg-background transition-colors text-left"
+              @click="handleCopyFromMonth(y, m)"
+            >
+              <Copy class="w-[14px] h-[14px] text-muted flex-shrink-0" />
+              <span class="text-[14px] font-medium text-foreground">{{ MONTH_NAMES[m] }} {{ y }}</span>
+            </button>
+          </div>
+        </Transition>
       </div>
     </section>
 

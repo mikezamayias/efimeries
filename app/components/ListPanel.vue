@@ -1,9 +1,14 @@
 <script setup lang="ts">
-import { Star, Palmtree, Thermometer } from 'lucide-vue-next'
+import { Star, Palmtree, Thermometer, Clock } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
-import { DOCTOR_COLORS, DAY_NAMES, getDayOfWeek, getDayOfWeekMondayBased } from '~/utils/types'
+import { DOCTOR_COLORS, DAY_NAMES, SHIFT_TYPES, getDayOfWeek, getDayOfWeekMondayBased } from '~/utils/types'
 
-const { doctors, month, year, marks, schedule, daysInMonth, holidayMap } = useAppState()
+const { doctors, month, year, marks, schedule, daysInMonth, holidayMap, shiftType } = useAppState()
+
+function getShiftHours(): string {
+  const st = SHIFT_TYPES.find(s => s.value === shiftType.value)
+  return st?.hours ?? '08:00 — 08:00'
+}
 
 function getDoctorForDay(dayIndex: number) {
   if (!schedule.value) return null
@@ -81,17 +86,29 @@ function getRowBg(dayIndex: number): string {
         </div>
 
         <div class="flex-1">
-          <div
-            v-if="getDoctorForDay(i - 1)"
-            class="chip inline-flex"
-            :style="{
-              backgroundColor: DOCTOR_COLORS[getDoctorForDay(i - 1)!.colorIndex] + '1A',
-              color: DOCTOR_COLORS[getDoctorForDay(i - 1)!.colorIndex],
-            }"
-          >
-            {{ getDoctorForDay(i - 1)!.name }}
+          <div class="flex items-center gap-2">
+            <div
+              v-if="getDoctorForDay(i - 1)"
+              class="chip inline-flex"
+              :style="{
+                backgroundColor: DOCTOR_COLORS[getDoctorForDay(i - 1)!.colorIndex] + '1A',
+                color: DOCTOR_COLORS[getDoctorForDay(i - 1)!.colorIndex],
+              }"
+            >
+              {{ getDoctorForDay(i - 1)!.name }}
+            </div>
+            <span v-else class="text-[13px] text-muted">—</span>
+            <span v-if="getDoctorForDay(i - 1)" class="text-[11px] text-muted flex items-center gap-0.5">
+              <Clock class="w-[10px] h-[10px]" />
+              {{ getShiftHours() }}
+            </span>
           </div>
-          <span v-else class="text-[13px] text-muted">—</span>
+          <div
+            v-if="getDoctorForDay(i - 1)?.specialization"
+            class="text-[10px] text-muted mt-0.5"
+          >
+            {{ getDoctorForDay(i - 1)!.specialization }}
+          </div>
         </div>
 
         <div class="flex items-center gap-1 flex-shrink-0">
