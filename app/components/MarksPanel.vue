@@ -2,15 +2,25 @@
 import { ref } from 'vue'
 import { Ban, Star, CalendarHeart } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
+import { useHaptics } from '~/composables/useHaptics'
 import { DOCTOR_COLORS, getDayOfWeek } from '~/utils/types'
 
 const { doctors, month, year, marks, daysInMonth, setMark } = useAppState()
+const haptics = useHaptics()
 
 const mode = ref<'block' | 'want' | 'holiday'>('block')
+
+function switchMode(m: 'block' | 'want' | 'holiday') {
+  if (mode.value !== m) {
+    mode.value = m
+    haptics.light()
+  }
+}
 
 function toggleMark(doctorId: number, dayIndex: number) {
   const current = marks.value[doctorId]?.[dayIndex]
   setMark(doctorId, dayIndex, current === mode.value ? undefined : mode.value)
+  haptics.light()
 }
 
 function getMark(doctorId: number, dayIndex: number): 'block' | 'want' | undefined {
@@ -31,7 +41,7 @@ function isWeekend(dayIndex: number): boolean {
         class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[6px] font-medium text-[12px] transition-all min-h-[44px]"
         :style="mode === 'block' ? { backgroundColor: 'var(--color-danger)', color: 'white' } : {}"
         :class="mode !== 'block' ? 'text-muted hover:text-foreground' : ''"
-        @click="mode = 'block'"
+        @click="switchMode('block')"
       >
         <Ban class="w-[14px] h-[14px]" />
         Αποκλεισμός
@@ -40,7 +50,7 @@ function isWeekend(dayIndex: number): boolean {
         class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[6px] font-medium text-[12px] transition-all min-h-[44px]"
         :style="mode === 'want' ? { backgroundColor: 'var(--color-positive)', color: 'white' } : {}"
         :class="mode !== 'want' ? 'text-muted hover:text-foreground' : ''"
-        @click="mode = 'want'"
+        @click="switchMode('want')"
       >
         <Star class="w-[14px] h-[14px]" />
         Επιθυμία
@@ -49,7 +59,7 @@ function isWeekend(dayIndex: number): boolean {
         class="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-[6px] font-medium text-[12px] transition-all min-h-[44px]"
         :style="mode === 'holiday' ? { backgroundColor: 'var(--color-accent)', color: 'white' } : {}"
         :class="mode !== 'holiday' ? 'text-muted hover:text-foreground' : ''"
-        @click="mode = 'holiday'"
+        @click="switchMode('holiday')"
       >
         <CalendarHeart class="w-[14px] h-[14px]" />
         Αργία

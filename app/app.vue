@@ -9,11 +9,20 @@ import {
 } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useTheme } from '~/composables/useTheme'
+import { useHaptics } from '~/composables/useHaptics'
 
 const { initState, isLoaded } = useAppState()
 useTheme()
+const haptics = useHaptics()
 
 const activeTab = ref(0)
+
+function switchTab(i: number) {
+  if (activeTab.value !== i) {
+    activeTab.value = i
+    haptics.light()
+  }
+}
 
 const tabs = [
   { label: 'Ημερολόγιο', icon: CalendarDays },
@@ -42,7 +51,7 @@ onMounted(() => {
           :class="activeTab === i
             ? 'bg-accent-soft text-accent font-semibold'
             : 'text-muted hover:bg-background hover:text-foreground'"
-          @click="activeTab = i"
+          @click="switchTab(i)"
         >
           <component :is="tab.icon" class="w-[18px] h-[18px] flex-shrink-0" />
           <span class="text-[14px]">{{ tab.label }}</span>
@@ -73,7 +82,7 @@ onMounted(() => {
           :key="i"
           class="flex-1 flex flex-col items-center gap-1 py-2 transition-colors min-h-[52px]"
           :class="activeTab === i ? 'text-accent' : 'text-muted'"
-          @click="activeTab = i"
+          @click="switchTab(i)"
         >
           <component :is="tab.icon" class="w-[20px] h-[20px]" :stroke-width="activeTab === i ? 2.5 : 1.8" />
           <span class="text-[10px] font-medium leading-none">{{ tab.label }}</span>

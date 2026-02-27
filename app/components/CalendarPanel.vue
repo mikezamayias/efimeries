@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import { Sparkles, FileSpreadsheet, FileText, CalendarDays, Ban, Star } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
+import { useHaptics } from '~/composables/useHaptics'
 import {
   DOCTOR_COLORS,
   DAY_NAMES,
@@ -14,6 +15,8 @@ const {
   doctors, month, year, marks, schedule, stats, daysInMonth,
   generate, assignDay,
 } = useAppState()
+
+const haptics = useHaptics()
 
 const selectedDay = ref<number | null>(null)
 const sheetOpen = ref(false)
@@ -71,6 +74,7 @@ function openSheet(dayIndex: number) {
 function selectDoctor(doctorId: number | null) {
   if (selectedDay.value !== null) assignDay(selectedDay.value, doctorId)
   sheetOpen.value = false
+  haptics.medium()
 }
 
 function getMarkForDoctor(doctorId: number, dayIndex: number): 'block' | 'want' | undefined {
@@ -105,7 +109,7 @@ function doExportICS(doctorId?: number | null) {
   <div class="space-y-3">
     <!-- Generate & Export -->
     <div class="flex gap-2">
-      <button class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]" @click="generate">
+      <button class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]" @click="generate(); haptics.success()">
         <Sparkles class="w-[16px] h-[16px]" />
         Δημιουργία Προγράμματος
       </button>

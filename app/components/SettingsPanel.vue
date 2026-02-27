@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
+import { useHaptics } from '~/composables/useHaptics'
 import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS } from '~/utils/types'
 import type { DoctorType } from '~/utils/types'
 
@@ -10,6 +11,8 @@ const {
   addDoctor, removeDoctor, updateDoctor, resetAll, showToast,
   importData,
 } = useAppState()
+
+const haptics = useHaptics()
 
 const newName = ref('')
 const newType = ref<DoctorType>('eidikevomenos')
@@ -38,6 +41,7 @@ function saveEdit(id: number) {
 function confirmReset() {
   resetAll()
   showConfirmReset.value = false
+  haptics.heavy()
 }
 
 function exportData() {
@@ -119,7 +123,7 @@ function handleImport() {
           <button
             class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px]
                    text-muted hover:text-danger hover:bg-danger/10 transition-colors"
-            @click="removeDoctor(doc.id)"
+            @click="removeDoctor(doc.id); haptics.heavy()"
           >
             <Trash2 class="w-[16px] h-[16px]" />
           </button>
