@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { Plus, Trash2, RotateCcw, Download, Upload, Users, SlidersHorizontal, Package, CalendarHeart, MapPin, History } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
+import { useScheduleStore } from '~/composables/useScheduleStore'
 import { DOCTOR_COLORS, DOCTOR_TYPE_LABELS, MONTH_NAMES } from '~/utils/types'
 import type { DoctorType } from '~/utils/types'
 
@@ -11,7 +12,10 @@ const {
   addDoctor, removeDoctor, updateDoctor, resetAll, showToast,
   importData, autoHolidays, toggleAutoHolidays,
   customHolidays, addCustomHoliday, removeCustomHoliday,
+  setMonth,
 } = useAppState()
+
+const scheduleStore = useScheduleStore()
 
 const haptics = useHaptics()
 
@@ -66,6 +70,44 @@ function confirmReset() {
   resetAll()
   showConfirmReset.value = false
   haptics.heavy()
+}
+
+// History: refresh counter to trigger re-computation
+const historyRefresh = ref(0)
+
+const savedMonths = computed(() => {
+  // eslint-disable-next-line no-unused-expressions
+  historyRefresh.value // dependency for reactivity
+  const months = scheduleStore.listSavedMonths()
+  return months
+    .map(([y, m]) => {
+      const data = scheduleStore.loadMonth(y, m)
+      const scheduledDays = data?.schedule
+        ? data.schedule.filter((s: number | null) => s !== null).length
+        : 0
+      return { year: y, month: m, scheduledDays }
+    })
+    .sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year
+      return b.month - a.month
+    })
+})
+
+function isCurrentMonth(y: number, m: number): boolean {
+  return y === year.value && m === month.value
+}
+
+function loadSavedMonth(y: number, m: number) {
+  setMonth(m, y)
+  haptics.medium()
+  showToast(`Φορτώθηκε: ${MONTH_NAMES[m]} ${y}`)
+}
+
+function deleteSavedMonth(y: number, m: number) {
+  scheduleStore.deleteMonth(y, m)
+  historyRefresh.value++
+  haptics.heavy()
+  showToast(`Διαγράφηκε: ${MONTH_NAMES[m]} ${y}`)
 }
 
 function exportData() {
@@ -334,6 +376,45 @@ function handleImport() {
           >
             <Plus class="w-[16px] h-[16px]" />
             Προσθήκη Αργίας
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section>
+      <h2 class="section-title mb-3 flex items-center gap-2">
+        <History class="w-[16px] h-[16px] text-muted" />
+        Ιστορικό
+      </h2>
+
+      <div v-if="savedMonths.length === 0" class="card p-4">
+        <p class="text-[12px] text-muted text-center">Δεν υπάρχουν αποθηκευμένοι μήνες.</p>
+      </div>
+
+      <div v-else class="space-y-2">
+        <div
+          v-for="entry in savedMonths"
+          :key="`${entry.year}-${entry.month}`"
+          class="card flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-background transition-colors"
+          :class="{ 'ring-2 ring-accent/30': isCurrentMonth(entry.year, entry.month) }"
+          @click="loadSavedMonth(entry.year, entry.month)"
+        >
+          <div class="flex-1 min-w-0">
+            <div class="text-[14px] font-medium text-foreground">
+              {{ MONTH_NAMES[entry.month] }} {{ entry.year }}
+            </div>
+            <div class="text-[12px] text-muted mt-0.5">
+              {{ entry.scheduledDays }} {{ entry.scheduledDays === 1 ? 'εφημερία' : 'εφημερίες' }}
+              <span v-if="isCurrentMonth(entry.year, entry.month)" class="ml-1 text-accent font-medium">• τρέχων</span>
+            </div>
+          </div>
+          <button
+            class="w-[44px] h-[44px] flex items-center justify-center rounded-[8px]
+                   text-muted hover:text-danger hover:bg-danger/10 transition-colors"
+            @click.stop="deleteSavedMonth(entry.year, entry.month)"
+          >
+            <Trash2 class="w-[16px] h-[16px]" />
           </button>
         </div>
       </div>

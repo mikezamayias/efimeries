@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Sparkles, FileSpreadsheet, FileText, CalendarDays, Ban, Star, Palmtree, Thermometer } from 'lucide-vue-next'
+import { Sparkles, FileSpreadsheet, FileText, CalendarDays, Ban, Star, Palmtree, Thermometer, Printer } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
 import {
   DOCTOR_COLORS,
   DAY_NAMES,
+  MONTH_NAMES,
   getDayOfWeek,
   getFirstDayOfWeek,
 } from '~/utils/types'
@@ -124,13 +125,22 @@ function doExportICS(doctorId?: number | null) {
   exportToICS(schedule.value, doctors.value, year.value, month.value, doctorId)
   icsSheetOpen.value = false
 }
+
+function doPrint() {
+  window.print()
+}
 </script>
 
 <template>
   <div class="space-y-3">
+    <!-- Print header (hidden on screen, shown on print) -->
+    <div class="print-header" style="display: none;">
+      <h1>Εφημερίες — {{ MONTH_NAMES[month] }} {{ year }}</h1>
+    </div>
+
     <!-- Generate & Export (hidden in read-only) -->
     <template v-if="!readOnly">
-      <div class="flex gap-2">
+      <div class="flex gap-2 print-hide">
         <button class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]" @click="generate(); haptics.success()">
           <Sparkles class="w-[16px] h-[16px]" />
           Δημιουργία Προγράμματος
@@ -153,7 +163,7 @@ function doExportICS(doctorId?: number | null) {
         leave-from-class="opacity-100"
         leave-to-class="opacity-0"
       >
-        <div v-if="showExports && schedule" class="flex gap-2">
+        <div v-if="showExports && schedule" class="flex gap-2 print-hide">
           <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="doExportExcel">
             <FileSpreadsheet class="w-[16px] h-[16px] text-positive" />
             Excel
@@ -165,6 +175,10 @@ function doExportICS(doctorId?: number | null) {
           <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="openICSSelector">
             <CalendarDays class="w-[16px] h-[16px] text-accent" />
             ICS
+          </button>
+          <button class="btn-secondary flex-1 flex items-center justify-center gap-1.5 text-[13px]" @click="doPrint">
+            <Printer class="w-[16px] h-[16px] text-muted" />
+            Εκτύπωση
           </button>
         </div>
       </Transition>
@@ -264,6 +278,11 @@ function doExportICS(doctorId?: number | null) {
         </button>
       </div>
     </BottomSheet>
+
+    <!-- Print footer (hidden on screen, shown on print) -->
+    <div class="print-footer" style="display: none;">
+      Εκτυπώθηκε: {{ new Date().toLocaleDateString('el-GR') }}
+    </div>
 
     <!-- Day assignment sheet -->
     <BottomSheet :open="sheetOpen" :title="`Ημέρα ${selectedDay !== null ? selectedDay + 1 : ''}`" @close="sheetOpen = false">

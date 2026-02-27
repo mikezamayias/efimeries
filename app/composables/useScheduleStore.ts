@@ -60,10 +60,20 @@ export function useScheduleStore() {
     return months
   }
 
+  function deleteMonth(year: number, month: number) {
+    try {
+      localStorage.removeItem(storageKey(year, month))
+    }
+    catch {
+      // silently fail
+    }
+  }
+
   return {
     saveMonth,
     loadMonth,
     hasMonth,
     listSavedMonths,
+    deleteMonth,
   }
 }
