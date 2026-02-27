@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateSchedule } from '~/utils/scheduler'
+import { generateSchedule, recalculateStats } from '~/utils/scheduler'
 import type { Doctor, MarksMap, Constraints } from '~/utils/types'
 import { getDaysInMonth, getDayOfWeek, createDefaultDoctors } from '~/utils/types'
 
@@ -188,6 +188,30 @@ describe('generateSchedule - agrotikos constraints', () => {
     expect(result.schedule[0]).toBe(5)
     expect(result.schedule[15]).toBe(5)
   })
+
+  it('multiple agrotikos with overlapping wants — each contested day goes to one agrotikos', () => {
+    // 5 eidikevomenoi (enough capacity) + 2 agrotikos
+    const doctors: Doctor[] = [
+      { id: 1, name: 'Eid 1', type: 'eidikevomenos', colorIndex: 0 },
+      { id: 2, name: 'Eid 2', type: 'eidikevomenos', colorIndex: 1 },
+      { id: 3, name: 'Eid 3', type: 'eidikevomenos', colorIndex: 2 },
+      { id: 4, name: 'Eid 4', type: 'eidikevomenos', colorIndex: 3 },
+      { id: 5, name: 'Eid 5', type: 'eidikevomenos', colorIndex: 4 },
+      { id: 6, name: 'Agr 1', type: 'agrotikos', colorIndex: 5 },
+      { id: 7, name: 'Agr 2', type: 'agrotikos', colorIndex: 6 },
+    ]
+    // Both agrotikos want day 0 and 10; only agrotikos 7 wants day 20
+    const marks: MarksMap = {
+      6: { 0: 'want', 10: 'want' },
+      7: { 0: 'want', 10: 'want', 20: 'want' },
+    }
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints())
+    // Contested days: one agrotikos gets each (first in iteration order)
+    expect([6, 7]).toContain(result.schedule[0])
+    expect([6, 7]).toContain(result.schedule[10])
+    // Day 20 is only wanted by agrotikos 7
+    expect(result.schedule[20]).toBe(7)
+  })
 })
 
 describe('generateSchedule - eidikevomenoi weekend distribution', () => {
@@ -330,6 +354,31 @@ describe('generateSchedule - holiday treatment', () => {
     // 2 holiday days should be counted
     expect(totalHolAssigned).toBe(2)
   })
+
+  it('non-eidikevomenos holiday scoring branch is exercised (agrotikos on holiday)', () => {
+    // 5 eidikevomenoi + 1 agrotikos, agrotikos wants some holiday days
+    const doctors: Doctor[] = [
+      { id: 1, name: 'Eid 1', type: 'eidikevomenos', colorIndex: 0 },
+      { id: 2, name: 'Eid 2', type: 'eidikevomenos', colorIndex: 1 },
+      { id: 3, name: 'Eid 3', type: 'eidikevomenos', colorIndex: 2 },
+      { id: 4, name: 'Eid 4', type: 'eidikevomenos', colorIndex: 3 },
+      { id: 5, name: 'Eid 5', type: 'eidikevomenos', colorIndex: 4 },
+      { id: 6, name: 'Agr 1', type: 'agrotikos', colorIndex: 5 },
+    ]
+    const marks: MarksMap = {
+      1: { 0: 'holiday', 5: 'holiday', 10: 'holiday' },
+      2: { 0: 'holiday', 5: 'holiday', 10: 'holiday' },
+      3: { 0: 'holiday', 5: 'holiday', 10: 'holiday' },
+      4: { 0: 'holiday', 5: 'holiday', 10: 'holiday' },
+      5: { 0: 'holiday', 5: 'holiday', 10: 'holiday' },
+      6: { 0: 'want', 5: 'want' },
+    }
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints())
+    expect(result.schedule).toHaveLength(31)
+    // Agrotikos should be on their want days
+    expect(result.schedule[0]).toBe(6)
+    expect(result.schedule[5]).toBe(6)
+  })
 })
 
 describe('generateSchedule - edge cases', () => {
@@ -369,6 +418,103 @@ describe('generateSchedule - edge cases', () => {
     const assigned = result.schedule.filter(id => id !== null).length
     expect(assigned).toBe(31)
   })
+
+  it('handles 0 doctors gracefully', () => {
+    const doctors: Doctor[] = []
+    const result = generateSchedule(doctors, 2025, 0, {}, makeConstraints())
+    expect(result.schedule).toHaveLength(31)
+    // No doctors means no assignments
+    for (const day of result.schedule) {
+      expect(day).toBeNull()
+    }
+  })
+
+  it('handles more doctors than days', () => {
+    // 35 eidikevomenoi for 28 days (Feb)
+    const doctors = makeAllEidikDoctors(35)
+    const result = generateSchedule(doctors, 2025, 1, {}, makeConstraints({ maxShifts: 2 }))
+    expect(result.schedule).toHaveLength(28)
+    // All days should be assigned
+    const assigned = result.schedule.filter(id => id !== null).length
+    expect(assigned).toBe(28)
+  })
+
+  it('handles all days blocked for all doctors — produces empty schedule', () => {
+    const doctors = makeAllEidikDoctors(3)
+    const marks: MarksMap = {}
+    for (const d of doctors) {
+      marks[d.id] = {}
+      for (let day = 0; day < 31; day++) {
+        marks[d.id]![day] = 'block'
+      }
+    }
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints())
+    expect(result.schedule).toHaveLength(31)
+    // All null since everyone is blocked everywhere
+    for (const day of result.schedule) {
+      expect(day).toBeNull()
+    }
+  })
+})
+
+describe('generateSchedule - fallback paths', () => {
+  it('relaxed fallback succeeds when CSP fails with minGap=2 but works with minGap=1', () => {
+    // 2 eidikevomenoi + 1 agrotikos (to hit relaxed preAssignment branch)
+    // minGap=2 impossible for 2 eidikevomenoi to fill all remaining days
+    // CSP fails → relaxed (minGap=1) can alternate: A-B-A-B
+    const doctors: Doctor[] = [
+      { id: 1, name: 'Eid 1', type: 'eidikevomenos', colorIndex: 0 },
+      { id: 2, name: 'Eid 2', type: 'eidikevomenos', colorIndex: 1 },
+      { id: 3, name: 'Agr 1', type: 'agrotikos', colorIndex: 2 },
+    ]
+    const marks: MarksMap = {
+      3: { 15: 'want' }, // agrotikos wants day 15 → pre-assigned
+    }
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints({ minGap: 2, maxShifts: 16 }))
+    expect(result.schedule).toHaveLength(31)
+    // Agrotikos should be on day 15
+    expect(result.schedule[15]).toBe(3)
+    // All days should be filled
+    const assigned = result.schedule.filter(id => id !== null).length
+    expect(assigned).toBe(31)
+  })
+
+  it('greedy fallback runs when both CSP and relaxed fail', () => {
+    // 1 doctor, maxShifts=3 → only 3 days assignable
+    // CSP fails (can't fill all days), relaxed fails too, greedy fills what it can
+    const doctors = makeAllEidikDoctors(1)
+    const result = generateSchedule(doctors, 2025, 0, {}, makeConstraints({ minGap: 2, maxShifts: 3 }))
+    expect(result.schedule).toHaveLength(31)
+    const assigned = result.schedule.filter(id => id !== null).length
+    expect(assigned).toBeLessThanOrEqual(3)
+    expect(assigned).toBeGreaterThan(0)
+  })
+
+  it('greedy respects maxShifts and minGap as best effort', () => {
+    // 2 doctors, maxShifts=5 → CSP and relaxed both fail (capacity 10 < 31)
+    // Greedy fills as many as possible
+    const doctors = makeAllEidikDoctors(2)
+    const result = generateSchedule(doctors, 2025, 0, {}, makeConstraints({ minGap: 2, maxShifts: 5 }))
+    expect(result.schedule).toHaveLength(31)
+    const assigned = result.schedule.filter(id => id !== null).length
+    expect(assigned).toBeLessThanOrEqual(10)
+    expect(assigned).toBeGreaterThan(0)
+  })
+
+  it('relaxed constraints triggered when CSP is overconstrained by blocking', () => {
+    // 3 doctors with many blocked days
+    const doctors = makeAllEidikDoctors(3)
+    const marks: MarksMap = {}
+    for (const d of doctors) {
+      marks[d.id] = {}
+      for (let day = 0; day < 31; day++) {
+        if (day % 3 === (d.id - 1) % 3) continue // keep ~10 days
+        marks[d.id]![day] = 'block'
+      }
+    }
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints({ minGap: 2, maxShifts: 8 }))
+    expect(result.schedule).toHaveLength(31)
+  })
 })
 
 describe('generateSchedule - result structure', () => {
@@ -401,5 +547,141 @@ describe('generateSchedule - result structure', () => {
       expect(result.leaveCounts[doc.id]).toBeGreaterThanOrEqual(0)
       expect(result.sickCounts[doc.id]).toBeGreaterThanOrEqual(0)
     }
+  })
+})
+
+describe('recalculateStats', () => {
+  it('recalculates stats from a known schedule', () => {
+    const doctors = makeAllEidikDoctors(4)
+    // Manually create a schedule: 28 days (Feb 2025), cycling through doctors
+    const daysInMonth = getDaysInMonth(2025, 1)
+    const schedule: (number | null)[] = []
+    for (let d = 0; d < daysInMonth; d++) {
+      schedule.push(doctors[d % 4]!.id)
+    }
+
+    const marks: MarksMap = {
+      1: { 0: 'want', 4: 'want' },
+      2: { 1: 'want' },
+    }
+
+    const stats = recalculateStats(schedule, doctors, 2025, 1, marks)
+    // Verify counts
+    expect(stats.counts[1]).toBe(7) // days 0,4,8,12,16,20,24
+    expect(stats.counts[2]).toBe(7) // days 1,5,9,13,17,21,25
+    expect(stats.counts[3]).toBe(7) // days 2,6,10,14,18,22,26
+    expect(stats.counts[4]).toBe(7) // days 3,7,11,15,19,23,27
+
+    // Verify wants tracking
+    expect(stats.wantsTotal[1]).toBe(2)
+    expect(stats.wantsTotal[2]).toBe(1)
+    expect(stats.wantsFulfilled[1]).toBe(2) // Doctor 1 is assigned on days 0 and 4
+    expect(stats.wantsFulfilled[2]).toBe(1) // Doctor 2 is assigned on day 1
+  })
+
+  it('recalculates with leave and sick marks', () => {
+    const doctors = makeAllEidikDoctors(2)
+    const schedule: (number | null)[] = [1, null, 2, null, 1, null, 2]
+    const marks: MarksMap = {
+      1: { 1: 'leave', 3: 'leave' },
+      2: { 5: 'sick' },
+    }
+    // July 2025 has 31 days, but we only have 7 entries — use a small test month
+    // Use a known date context
+    const stats = recalculateStats(schedule, doctors, 2025, 0, marks)
+    expect(stats.leaveCounts[1]).toBe(2)
+    expect(stats.sickCounts[2]).toBe(1)
+  })
+
+  it('returns correct holiday counts from schedule', () => {
+    const doctors = makeAllEidikDoctors(3)
+    // Schedule: doctor 1 on day 0 (holiday), doctor 2 on day 1
+    const schedule: (number | null)[] = [1, 2, 3, 1, 2, 3]
+    const marks: MarksMap = {
+      1: { 0: 'holiday' },
+      2: { 0: 'holiday' },
+      3: { 0: 'holiday' },
+    }
+    const stats = recalculateStats(schedule, doctors, 2025, 0, marks)
+    expect(stats.holidayCounts[1]).toBe(1) // doctor 1 on holiday day 0
+    expect(stats.holidayCounts[2]).toBe(0)
+    expect(stats.holidayCounts[3]).toBe(0)
+  })
+})
+
+describe('generateSchedule - holiday soft scoring for non-eidikevomenos', () => {
+  it('agrotikos pre-assigned on holiday want day (exercises non-eidikevomenos holiday branch)', () => {
+    // 5 eidikevomenoi (enough capacity for CSP to succeed) + 1 agrotikos
+    const doctors: Doctor[] = [
+      { id: 1, name: 'Eid 1', type: 'eidikevomenos', colorIndex: 0 },
+      { id: 2, name: 'Eid 2', type: 'eidikevomenos', colorIndex: 1 },
+      { id: 3, name: 'Eid 3', type: 'eidikevomenos', colorIndex: 2 },
+      { id: 4, name: 'Eid 4', type: 'eidikevomenos', colorIndex: 3 },
+      { id: 5, name: 'Eid 5', type: 'eidikevomenos', colorIndex: 4 },
+      { id: 6, name: 'Agr 1', type: 'agrotikos', colorIndex: 5 },
+    ]
+
+    // Mark day 6 as holiday for ALL, agrotikos wants it
+    const marks: MarksMap = {
+      1: { 6: 'holiday' },
+      2: { 6: 'holiday' },
+      3: { 6: 'holiday' },
+      4: { 6: 'holiday' },
+      5: { 6: 'holiday' },
+      6: { 6: 'want' },
+    }
+
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints())
+    expect(result.schedule).toHaveLength(31)
+    // Agrotikos (id=6) should be pre-assigned on day 6 since they want it
+    expect(result.schedule[6]).toBe(6)
+  })
+
+  it('agrotikos on multiple holiday days exercises increasing penalty branch', () => {
+    const doctors: Doctor[] = [
+      { id: 1, name: 'Eid 1', type: 'eidikevomenos', colorIndex: 0 },
+      { id: 2, name: 'Eid 2', type: 'eidikevomenos', colorIndex: 1 },
+      { id: 3, name: 'Eid 3', type: 'eidikevomenos', colorIndex: 2 },
+      { id: 4, name: 'Eid 4', type: 'eidikevomenos', colorIndex: 3 },
+      { id: 5, name: 'Eid 5', type: 'eidikevomenos', colorIndex: 4 },
+      { id: 6, name: 'Agr 1', type: 'agrotikos', colorIndex: 5 },
+    ]
+    const marks: MarksMap = {
+      1: { 6: 'holiday', 13: 'holiday' },
+      2: { 6: 'holiday', 13: 'holiday' },
+      3: { 6: 'holiday', 13: 'holiday' },
+      4: { 6: 'holiday', 13: 'holiday' },
+      5: { 6: 'holiday', 13: 'holiday' },
+      6: { 6: 'want', 13: 'want' },
+    }
+
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints())
+    expect(result.schedule).toHaveLength(31)
+    // Agrotikos should be pre-assigned on both holiday days
+    expect(result.schedule[6]).toBe(6)
+    expect(result.schedule[13]).toBe(6)
+  })
+})
+
+describe('generateSchedule - non-eidikevomenos weekend scoring', () => {
+  it('agrotikos pre-assigned on weekend want days (exercises non-eidikevomenos weekend branch)', () => {
+    // 5 eidikevomenoi (enough capacity) + 1 agrotikos
+    const doctors: Doctor[] = [
+      { id: 1, name: 'Eid 1', type: 'eidikevomenos', colorIndex: 0 },
+      { id: 2, name: 'Eid 2', type: 'eidikevomenos', colorIndex: 1 },
+      { id: 3, name: 'Eid 3', type: 'eidikevomenos', colorIndex: 2 },
+      { id: 4, name: 'Eid 4', type: 'eidikevomenos', colorIndex: 3 },
+      { id: 5, name: 'Eid 5', type: 'eidikevomenos', colorIndex: 4 },
+      { id: 6, name: 'Agr 1', type: 'agrotikos', colorIndex: 5 },
+    ]
+    // Jan 2025: day index 3 (4th) is Saturday, day index 4 (5th) is Sunday
+    const marks: MarksMap = {
+      6: { 3: 'want', 4: 'want' },
+    }
+
+    const result = generateSchedule(doctors, 2025, 0, marks, makeConstraints())
+    // Agrotikos (id=6) should be pre-assigned on their want weekend days
+    expect(result.schedule[3]).toBe(6) // Saturday
+    expect(result.schedule[4]).toBe(6) // Sunday
   })
 })

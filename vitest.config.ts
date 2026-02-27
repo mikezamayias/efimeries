@@ -13,7 +13,7 @@ export default defineConfig({
     include: ['tests/unit/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['app/utils/**/*.ts'],
+      include: ['app/utils/**/*.ts', 'app/composables/useShare.ts'],
       reporter: ['text', 'lcov', 'json-summary'],
       reportsDirectory: 'coverage',
     },
