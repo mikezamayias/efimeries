@@ -260,6 +260,18 @@ export function useAppState() {
     })
   }
 
+  /** Swap (or move) schedule assignments between two days — used by drag & drop */
+  function swapDays(fromIndex: number, toIndex: number) {
+    if (!schedule.value) return
+    recordAction(() => {
+      schedule.value = [...schedule.value!]
+      const temp = schedule.value[fromIndex]
+      schedule.value[fromIndex] = schedule.value[toIndex]
+      schedule.value[toIndex] = temp
+      stats.value = recalculateStats(schedule.value, doctors.value, year.value, month.value, marks.value)
+    })
+  }
+
   function setMark(doctorId: number, dayIndex: number, mark: Mark) {
     recordAction(() => {
       const newMarks = { ...marks.value }
@@ -523,6 +535,7 @@ export function useAppState() {
     holidayMap,
     generate,
     assignDay,
+    swapDays,
     setMark,
     setMarkRange,
     addDoctor,

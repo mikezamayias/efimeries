@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Sparkles, FileSpreadsheet, FileText, CalendarDays, Ban, Star, Palmtree, Thermometer, Printer } from 'lucide-vue-next'
 import { useAppState } from '~/composables/useAppState'
 import { useHaptics } from '~/composables/useHaptics'
+import { useDragDrop } from '~/composables/useDragDrop'
 import {
   DOCTOR_COLORS,
   DAY_NAMES,
@@ -20,7 +21,7 @@ const props = withDefaults(defineProps<{
 
 const {
   doctors, month, year, marks, schedule, stats, daysInMonth,
-  generate, assignDay, holidayMap,
+  generate, assignDay, swapDays, holidayMap, showToast,
 } = useAppState()
 
 const haptics = useHaptics()
@@ -29,6 +30,56 @@ const selectedDay = ref<number | null>(null)
 const sheetOpen = ref(false)
 const showExports = ref(false)
 const icsSheetOpen = ref(false)
+const calendarGridRef = ref<HTMLElement | null>(null)
+
+// ─── Staggered reveal animation ───
+const revealedCells = ref<Set<number>>(new Set())
+const isStaggering = ref(false)
+let staggerTimeout: ReturnType<typeof setTimeout> | null = null
+
+function startStaggeredReveal() {
+  revealedCells.value = new Set()
+  isStaggering.value = true
+  const totalDays = daysInMonth.value
+  for (let i = 0; i < totalDays; i++) {
+    const t = setTimeout(() => {
+      revealedCells.value = new Set([...revealedCells.value, i])
+      if (i === totalDays - 1) {
+        isStaggering.value = false
+      }
+    }, i * 20)
+    staggerTimeout = t
+  }
+}
+
+// ─── Drag & Drop ───
+
+function handleSwap(from: number, to: number) {
+  swapDays(from, to)
+  haptics.medium()
+  showToast('Μετακίνηση εφημερίας')
+}
+
+const { dragState, handleDragStart, handleDragOver, handleDragEnter, handleDragLeave, handleDrop, handleDragEnd, handleTouchStart, handleTouchMove, handleTouchEnd, handleTouchCancel } = useDragDrop(handleSwap)
+
+/** Find the day index of the calendar cell at a given screen coordinate */
+function getCellAtPoint(x: number, y: number): number | null {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null
+  if (!el) return null
+  const dayAttr = el.closest('[data-day-index]')?.getAttribute('data-day-index')
+  if (dayAttr !== null && dayAttr !== undefined) return parseInt(dayAttr, 10)
+  return null
+}
+
+// ─── Cell tap animation ───
+const tappedCell = ref<number | null>(null)
+let tapTimer: ReturnType<typeof setTimeout> | null = null
+
+function tapCell(dayIndex: number) {
+  tappedCell.value = dayIndex
+  if (tapTimer) clearTimeout(tapTimer)
+  tapTimer = setTimeout(() => { tappedCell.value = null }, 200)
+}
 
 const firstDow = computed(() => getFirstDayOfWeek(year.value, month.value))
 
@@ -87,6 +138,7 @@ function getHolidayName(dayIndex: number): string | null {
 
 function openSheet(dayIndex: number) {
   if (!schedule.value) return
+  tapCell(dayIndex)
   selectedDay.value = dayIndex
   sheetOpen.value = true
 }
@@ -101,6 +153,13 @@ function getMarkForDoctor(doctorId: number, dayIndex: number): 'block' | 'want' 
   const mark = marks.value[doctorId]?.[dayIndex]
   if (mark === 'block' || mark === 'want' || mark === 'leave' || mark === 'sick') return mark
   return undefined
+}
+
+// Wrapped generate with staggered reveal
+function doGenerate() {
+  generate()
+  haptics.success()
+  startStaggeredReveal()
 }
 
 async function doExportExcel() {
@@ -129,6 +188,27 @@ function doExportICS(doctorId?: number | null) {
 function doPrint() {
   window.print()
 }
+
+// On touch move, delegate to drag composable
+function onGridTouchMove(e: TouchEvent) {
+  handleTouchMove(e, getCellAtPoint)
+}
+
+// Helper: is this cell the drop target?
+function isDropTarget(dayIndex: number): boolean {
+  return dragState.value.isDragging && dragState.value.targetDayIndex === dayIndex && dragState.value.sourceDayIndex !== dayIndex
+}
+
+// Helper: is this cell the drag source?
+function isDragSource(dayIndex: number): boolean {
+  return dragState.value.isDragging && dragState.value.sourceDayIndex === dayIndex
+}
+
+// Cell visibility for stagger (always visible if not staggering)
+function isCellRevealed(dayIndex: number): boolean {
+  if (!isStaggering.value) return true
+  return revealedCells.value.has(dayIndex)
+}
 </script>
 
 <template>
@@ -141,7 +221,11 @@ function doPrint() {
     <!-- Generate & Export (hidden in read-only) -->
     <template v-if="!readOnly">
       <div class="flex gap-2 print-hide">
-        <button class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]" @click="generate(); haptics.success()">
+        <button
+          id="generate-btn"
+          class="btn-primary flex-1 flex items-center justify-center gap-2 text-[14px]"
+          @click="doGenerate()"
+        >
           <Sparkles class="w-[16px] h-[16px]" />
           Δημιουργία Προγράμματος
         </button>
@@ -185,7 +269,7 @@ function doPrint() {
     </template>
 
     <!-- Calendar Grid -->
-    <div class="card overflow-hidden">
+    <div ref="calendarGridRef" class="card overflow-hidden">
       <!-- Day headers -->
       <div class="grid grid-cols-7 border-b border-border">
         <div
@@ -199,22 +283,39 @@ function doPrint() {
       </div>
 
       <!-- Day cells -->
-      <div class="grid grid-cols-7">
+      <div
+        class="grid grid-cols-7"
+        @touchmove="onGridTouchMove"
+        @touchend="handleTouchEnd"
+        @touchcancel="handleTouchCancel"
+      >
         <div
           v-for="(cell, ci) in gridCells"
           :key="ci"
+          :data-day-index="cell.day !== null ? cell.index : undefined"
+          :draggable="!readOnly && !!schedule && cell.day !== null && getDoctorForDay(cell.index) !== null"
           class="aspect-square flex flex-col items-center justify-center gap-[1px] p-[2px] relative
-                 border-b border-r border-border transition-colors duration-100"
+                 border-b border-r border-border transition-all duration-150"
           :class="[
             cell.day === null
               ? 'bg-background'
-              : 'cursor-pointer hover:bg-accent-soft active:scale-[0.97]',
+              : 'cursor-pointer hover:bg-accent-soft',
             cell.day !== null && isWeekendDay(cell.index) ? 'bg-weekend-bg' : (cell.day !== null ? 'bg-surface' : ''),
             cell.day !== null && isHoliday(cell.index) ? 'ring-1 ring-inset ring-accent/20' : '',
             cell.day !== null && hasLeaveOrSick(cell.index) === 'leave' ? 'ring-1 ring-inset ring-amber-400/30' : '',
             cell.day !== null && hasLeaveOrSick(cell.index) === 'sick' ? 'ring-1 ring-inset ring-red-400/30' : '',
+            cell.day !== null && isDropTarget(cell.index) ? 'ring-2 ring-inset ring-accent bg-accent-soft scale-[1.02]' : '',
+            cell.day !== null && isDragSource(cell.index) ? 'opacity-40' : '',
+            cell.day !== null && tappedCell === cell.index ? 'scale-[0.95]' : '',
           ]"
-          @click="cell.day !== null && !readOnly && openSheet(cell.index)"
+          @click="cell.day !== null && !readOnly && !dragState.isDragging && openSheet(cell.index)"
+          @dragstart="cell.day !== null && handleDragStart($event, cell.index)"
+          @dragover="cell.day !== null && handleDragOver($event, cell.index)"
+          @dragenter="cell.day !== null && handleDragEnter($event, cell.index)"
+          @dragleave="cell.day !== null && handleDragLeave($event, cell.index)"
+          @drop="cell.day !== null && handleDrop($event, cell.index)"
+          @dragend="handleDragEnd($event)"
+          @touchstart="cell.day !== null && !readOnly && schedule && getDoctorForDay(cell.index) !== null && handleTouchStart($event, cell.index, $event.currentTarget as HTMLElement)"
         >
           <template v-if="cell.day !== null">
             <span
@@ -224,17 +325,23 @@ function doPrint() {
               {{ cell.day }}
             </span>
 
-            <div
-              v-if="getDoctorForDay(cell.index)"
-              class="chip max-w-full overflow-hidden text-ellipsis"
-              :style="{
-                backgroundColor: getDoctorColor(cell.index) + '1A',
-                color: getDoctorColor(cell.index),
-              }"
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              enter-from-class="opacity-0 scale-75"
+              enter-to-class="opacity-100 scale-100"
             >
-              {{ getDoctorForDay(cell.index)?.name?.slice(0, 5) }}
-            </div>
-            <div v-else-if="schedule" class="text-[10px] text-muted">—</div>
+              <div
+                v-if="getDoctorForDay(cell.index) && isCellRevealed(cell.index)"
+                class="chip max-w-full overflow-hidden text-ellipsis"
+                :style="{
+                  backgroundColor: getDoctorColor(cell.index) + '1A',
+                  color: getDoctorColor(cell.index),
+                }"
+              >
+                {{ getDoctorForDay(cell.index)?.name?.slice(0, 5) }}
+              </div>
+            </Transition>
+            <div v-if="!getDoctorForDay(cell.index) && schedule && isCellRevealed(cell.index)" class="text-[10px] text-muted">—</div>
 
             <!-- Holiday name -->
             <div
