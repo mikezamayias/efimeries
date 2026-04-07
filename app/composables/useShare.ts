@@ -67,8 +67,7 @@ export function formatScheduleText(
       }
     }
 
-    const prefix = isHoliday ? '🎌 ' : ''
-    lines.push(`${prefix}${String(dayNum).padStart(2, ' ')} ${dayName} — ${name}`)
+    lines.push(`${String(dayNum).padStart(2, ' ')} ${dayName} — ${name}`)
   }
 
   return lines.join('\n')

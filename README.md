@@ -4,7 +4,7 @@ A specialized, mobile-first Progressive Web App (PWA) designed for Greek public 
 
 Live App: [https://efimeries.pages.dev](https://efimeries.pages.dev)
 
-## ✨ Features
+## Features
 
 - **Automated Scheduling Engine:** Custom Constraint Satisfaction Problem (CSP) solver using backtracking, AC-3 propagation, and MRV heuristics to automatically distribute shifts while respecting hard and soft medical rules.
 - **Fairness Algorithms:** Algorithmic balancing for weekends, holidays, specific shift types (24-hour vs morning), and requested days off.
@@ -18,7 +18,7 @@ Live App: [https://efimeries.pages.dev](https://efimeries.pages.dev)
   - End-to-End testing with **Playwright**
   - Accessibility (a11y) auditing with **Axe-core**
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Framework:** Nuxt 4, Vue 3 (Composition API)
 - **Language:** TypeScript
@@ -26,7 +26,7 @@ Live App: [https://efimeries.pages.dev](https://efimeries.pages.dev)
 - **Testing:** Vitest, Playwright, @axe-core/playwright
 - **Deployment:** Vercel / Cloudflare Pages (Serverless-ready)
 
-## 🚀 Quick Start
+## Quick Start
 
 Make sure to install dependencies using your preferred package manager:
 
@@ -47,7 +47,7 @@ bun run test         # Unit tests
 bun run test:e2e     # End-to-End tests
 ```
 
-## 📄 License & Commercial Use
+## License & Commercial Use
 
 This project is **Dual-Licensed**.
 

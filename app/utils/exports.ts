@@ -87,14 +87,13 @@ export async function exportToExcel(
     const isWknd = dow === 0 || dow === 6
     const isHol = isDayHoliday(dayIndex, doctors, marks)
     const isBold = isWknd || isHol
-    const prefix = isHol ? '🎌 ' : ''
 
     const cellStyle: any = { font: { bold: isBold } }
     if (doc) {
       cellStyle.font.color = getDoctorFontColor(doc)
     }
 
-    week[col] = { v: `${prefix}${currentDay}\n${name}`, s: cellStyle }
+    week[col] = { v: `${currentDay}\n${name}`, s: cellStyle }
     currentDay++
   }
   calData.push(week)
@@ -111,14 +110,13 @@ export async function exportToExcel(
       const isWknd = dow === 0 || dow === 6
       const isHol = isDayHoliday(dayIndex, doctors, marks)
       const isBold = isWknd || isHol
-      const prefix = isHol ? '🎌 ' : ''
 
       const cellStyle: any = { font: { bold: isBold } }
       if (doc) {
         cellStyle.font.color = getDoctorFontColor(doc)
       }
 
-      week[col] = { v: `${prefix}${currentDay}\n${name}`, s: cellStyle }
+      week[col] = { v: `${currentDay}\n${name}`, s: cellStyle }
       currentDay++
     }
     calData.push(week)
@@ -167,7 +165,7 @@ export async function exportToExcel(
       { v: i + 1, s: rowStyle },
       { v: `${i + 1}/${month + 1}/${year}`, s: rowStyle },
       { v: DAY_NAMES[mondayIdx] ?? '', s: rowStyle },
-      { v: (isHol ? '🎌 ' : '') + (getDoctorName(docId, doctors) || '—'), s: nameStyle },
+      { v: (getDoctorName(docId, doctors) || '—'), s: nameStyle },
       { v: doc ? (doc.type === 'eidikevomenos' ? 'Ειδικευόμενος' : 'Αγροτικός') : '', s: rowStyle },
       { v: shiftHours, s: rowStyle },
     ])
@@ -242,8 +240,7 @@ export async function exportToExcel(
     const isWknd = dow === 0 || dow === 6
     const isHol = isDayHoliday(i, doctors, marks)
     const isBold = isWknd || isHol
-    const prefix = isHol ? '🎌 ' : ''
-    const dateStr = `${prefix}${dayName.toUpperCase()} ${String(i + 1).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`
+    const dateStr = `${dayName.toUpperCase()} ${String(i + 1).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`
 
     const docId = schedule[i]
     const assignedDoc = doctors.find(d => d.id === docId)
@@ -393,7 +390,7 @@ export async function exportToPDF(
 
     // Day number and day name in black
     doc.setTextColor(0, 0, 0)
-    const dayLabel = isHol ? `🎌 ${i + 1}` : `${i + 1}`
+    const dayLabel = `${i + 1}`
     doc.text(dayLabel, 15, y)
     const mondayIdx = dow === 0 ? 6 : dow - 1
     doc.text(DAY_NAMES[mondayIdx] ?? '', 30, y)
